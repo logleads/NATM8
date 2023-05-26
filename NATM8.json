@@ -1,0 +1,2585 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "AWS CloudFormation template for NAT M8",
+    "Transform": "AWS::LanguageExtensions",
+    "Metadata": {
+        "LICENSE": "Logverz Public License, https://docs.logverz.io/licence",
+        "GitHub":"https://github.com/logleads/NATM8",
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "Virtual Private Cloud Settings"
+                    },
+                    "Parameters": [
+                        "VpcId",
+                        "VpcCidr",
+                        "PublicSubnets",
+                        "PrivateSubnets"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Instance Generic Settings"
+                    },
+                    "Parameters": [
+                        "InstanceTypeX64",
+                        "InstanceTypeARM",
+                        "InstanceDesiredNumber",
+                        "InstanceMinimumNumber",
+                        "InstanceScaleUpConfig",
+                        "InstanceScaleDownConfig"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Advanced Configuration"
+                    },
+                    "Parameters": [
+                        "CWLogsandMetricsConfig",
+                        "OnDemandPurchasePercentage",
+                        "ASGScheduledScaleDownState",
+                        "ASGScheduledScaleUpState"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Other Settings"
+                    },
+                    "Parameters": [
+                        "NATConfigBucket",
+                        "NATRoutingScript",
+                        "NatServerAMIidX64",
+                        "NatServerAMIidARM"
+                    ]
+                }
+            ],
+            "ParameterLabels": {
+                "VpcId": {
+                    "default": "Virtual Private Cloud ID"
+                },
+                "VpcCidr": {
+                    "default": "VPC CIDR Range"
+                },
+                "PublicSubnets": {
+                    "default": "Public Subnets"
+                },
+                "PrivateSubnets": {
+                    "default": "Private Subnets"
+                },
+                "InstanceTypeX64":{
+                    "default": "Instance Type X64"
+                },
+                "InstanceTypeARM":{
+                    "default": "Instance Type ARM"
+                },
+                "InstanceDesiredNumber": {
+                    "default": "Instance Desired Number"
+                },
+                "InstanceMinimumNumber": {
+                    "default": "Instance Minimum Number"
+                },
+                "InstanceScaleUpConfig":{
+                    "default": "Instance Scale Up Configuration"
+                },
+                "InstanceScaleDownConfig":{
+                    "default": "Instance Scale Down Configuration"
+                },
+                "ASGScheduledScaleDownState":{
+                    "default": "Scheduled Scale Down State"
+                },
+                "ASGScheduledScaleUpState":{
+                    "default": "Scheduled Scale Up State"
+                },
+                "NatServerAMIidX64":{
+                    "default": "Instance AMI ID X64"
+                },
+                "NatServerAMIidARM":{
+                    "default": "Instance AMI ID ARM"
+                },
+                "NATConfigBucket": {
+                    "default": "NAT Configuration Bucket"
+                },
+                "NATRoutingScript": {
+                    "default": "NAT Routing Logic location"
+                },
+                "CWLogsandMetricsConfig":{
+                    "default": "CloudWatch Logs and Metrics Configuration"
+                },
+                "OnDemandPurchasePercentage":{
+                    "default": "OnDemand Instance Purchase Percentage"
+                }
+            }
+        }
+    },
+    "Parameters": {
+        "VpcId": {
+            "Type": "AWS::EC2::VPC::Id",
+            "Description": "VpcId of your existing Virtual Private Cloud (VPC)",
+            "ConstraintDescription": "Must be the VPC Id of an existing Virtual Private Cloud."
+        },
+        "VpcCidr": {
+            "Description": "the CIDR address range of the Virtual Private Cloud (VPC), the value can be looked up from the VPCID (previous) fields dropdown. By default it is 172.31.0.0/16, make sure to verify that by clicking to the dropdown above.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PublicSubnets": {
+            "Type": "List<AWS::EC2::Subnet::Id>",
+            "Description": "The list of public SubnetIds in your Virtual Private Cloud (VPC)."
+        },
+        "PrivateSubnets": {
+            "Type": "List<AWS::EC2::Subnet::Id>",
+            "Description": "The list of Subnets that will be desginated as private, instead of direct internet communication route traffic trough the NAT instance(s)."
+        },
+        "InstanceTypeX64": {
+            "Description": "EC2 instance types X64 (Intel/AMD) architecture, in format, x.<size>, y.<size>, z.<size>.. Specify maximum 3 X64 types, can be empty if you only want to use ARM type instances. Make sure the instance type exists in the selected region otherwise deployment will fail!",
+            "Type": "String",
+            "AllowedPattern":"^$|.*\\..*[^,]$|.*\\..*,.*\\..*[^,]$|.*\\..*,.*\\..*,.*\\..*[^,]$",
+            "ConstraintDescription": "must be in the following format: empty OR x.<size> OR x.<size>,y.<size> OR x.<size>,y.<size>,z.<size> no trailing comma!",
+            "Default": "t3.nano,t3a.nano"
+        },
+        "InstanceTypeARM": {
+            "Description": "EC2 instance type ARM architecture, in format, x.<size>, y.<size>, z.<size>.. Specify maximum 3 ARM types, can be empty if you only want to use X64 type instances. Make sure the instance type exists in the selected region otherwise deployment will fail!",
+            "Type": "String",
+            "AllowedPattern":"^$|.*\\..*[^,]$|.*\\..*,.*\\..*[^,]$|.*\\..*,.*\\..*,.*\\..*[^,]$",
+            "ConstraintDescription": "must be in the following format: empty OR x.<size> OR x.<size>,y.<size> OR x.<size>,y.<size>,z.<size> no trailing comma!",
+            "Default": "t4g.nano"
+        },
+        "InstanceDesiredNumber": {
+            "Default": "1",
+            "Description": "The desired number of instances, if no scaleup or scaledown configured it will remain as set, otherwise raise or fall respectively.",
+            "Type": "Number",
+            "MinValue": "0"
+        },
+        "InstanceMinimumNumber": {
+            "Default": "0",
+            "Description": "The minimum number of instances, if set to 0 and scaledown config is present than instance by **default will stop** once conditions apply (default 1MB / hour), if you want **continusly running** service set the minimum number to 1.",
+            "Type": "Number",
+            "MinValue": "0"
+        },
+        "InstanceScaleUpConfig":{
+            "Default": "70/5",
+            "Type": "String",
+            "Description": "First parameter is CPU usage percentage range of 1-100, second number of minutes, with minimum value of 5 and 1440 as max. By default if per instance AVG cpu usage exceeds 70% for 5 minutes, a new instance is scaled up until ASG max number is reached. Leave empty if no scaleup is desired."
+        },
+        "InstanceScaleDownConfig":{
+            "Default": "1/60",
+            "Type": "String",
+            "Description": "First parameter is network in traffic in MB, minimum value 1, second number of minutes, with minimum value of 5 and 1440 as max. By default if per instance network traffic usage is under 1MB for 60 minutes, the instance is scaled down until ASG minimum number is reached. Leave empty if no scaledown is desired."
+        },
+        "ASGScheduledScaleDownState":{
+            "Default": "disabled",
+            "AllowedValues": [
+                "enabled",
+                "disabled"
+            ],
+            "Type": "String",
+            "Description": "By Default scheduled scale down is disabled, if feature required: 1st configure parameters in parameter store in keys /NAT_M8/ASGScaleDownConfig/*, once required parameters are specified as a 2nd step, set this parameter to enabled"
+        },
+        "ASGScheduledScaleUpState":{
+            "Default": "disabled",
+            "AllowedValues": [
+                "enabled",
+                "disabled"
+            ],
+            "Type": "String",
+            "Description": "By Default scheduled scale up is disabled, if feature required: 1st configure parameters in parameter store in keys /NAT_M8/ASGScaleUpConfig/*, once required parameters are specified as a 2nd step, set this parameter to enabled"
+        },
+        "NATConfigBucket":{
+            "Default": "",
+            "Description": "Optional if empty the route configuration script is downloaded from GitHub, in case you want to source it from a local bucket than specify only bucketname no beginning or trailing \"/\".",
+            "Type": "String"
+        },
+        "NATRoutingScript":{
+            "Default": "",
+            "Description": "Optional if empty the route configuration script is downloaded from GitHub, in case you want to source it from a local bucket (and file located in the root) specify ConfigureRoutes.ps1. Assuming file is located in a nested subfolder such as scripts -> nat than provide path like: scripts/nat/ConfigureRoutes.ps1. Note! there is no \"/\" at the beginning of the filename",
+            "Type": "String"
+        },
+        "NatServerAMIidX64": {
+            "Description": "The image for the NAT server X64 (Intel/AMD).",
+            "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+            "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+        },
+        "NatServerAMIidARM": {
+            "Description": "The image for the NAT server ARM.",
+            "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+            "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-arm64-gp2"
+        },
+        "CWLogsandMetricsConfig":{
+            "Description": "Contains configuration options of which logs and metrics to collect, configuration is set in SSM parameter store /NAT_M8/CloudwatchLogsConfig<type> for dev or hobbyist environment minimal, standard environments basic, enterprise or critical environment standard config is recommended",
+            "Type": "String",
+            "Default": "minimal",
+            "AllowedValues": [
+                "none",
+                "minimal",
+                "basic",
+                "standard"
+            ]
+        },
+        "OnDemandPurchasePercentage": {
+            "Default": "0",
+            "Description": "The percentage of ondemand instances in the autoscaling group. At 0 its all spot instances, at 100 its all ondemand. Incase of 3 instances setting 33 means 1 ondemand and 2 spot mode purchased instances",
+            "Type": "Number",
+            "MinValue": "0",
+            "MaxValue": "100"
+        }
+    },
+    "Rules": {
+        "SubnetsInVPC": {
+            "Assertions": [
+                {
+                    "Assert": {
+                        "Fn::EachMemberIn": [
+                            {
+                                "Fn::ValueOfAll": [
+                                    "AWS::EC2::Subnet::Id",
+                                    "VpcId"
+                                ]
+                            },
+                            {
+                                "Fn::RefAll": "AWS::EC2::VPC::Id"
+                            }
+                        ]
+                    },
+                    "AssertDescription": "All subnets must exist in the VPC"
+                }
+            ]
+        }
+    },
+    "Mappings": {
+        "Constants" : {
+            "Script" : {
+              "Url" : "https://raw.githubusercontent.com/logleads/NATM8/main/ConfigureRoutes.ps1"
+            },
+            "LogFrequency" : {
+                "Minute" : 5
+            }
+          }
+    },
+    "Conditions": {
+        "LocalS3bucketspecified": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    {
+                        "Ref": "NATConfigBucket"
+                    },
+                    ""
+                ]
+            }]
+        },
+        "PrivatesubnetNumberMax2":{
+            "Fn::Or" : [
+                {
+                    "Fn::Equals": [
+                        { 
+                            "Fn::Length" : { 
+                                "Ref" :"PrivateSubnets"
+                            }
+                        },
+                        2
+                    ]
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax3"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax4"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax3":{
+            "Fn::Or" : [
+                {
+                "Fn::Equals": [
+                    { 
+                        "Fn::Length" : { 
+                            "Ref" :"PrivateSubnets"
+                        }
+                    },
+                    3
+                ]},
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax4"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax4":{
+            "Fn::Or" : [
+                {
+                "Fn::Equals": [
+                    { 
+                        "Fn::Length" : { 
+                            "Ref" :"PrivateSubnets"
+                        }
+                    },
+                    4
+                ]},
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax5":{
+            "Fn::Or" : [
+                {
+                "Fn::Equals": [
+                    { 
+                        "Fn::Length" : { 
+                            "Ref" :"PrivateSubnets"
+                        }
+                    },
+                    5
+                ]},
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax6":{
+            "Fn::Or" : [
+                {
+                "Fn::Equals": [
+                    { 
+                        "Fn::Length" : { 
+                            "Ref" :"PrivateSubnets"
+                        }
+                    },
+                    6
+                ]},
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax7":{
+            "Fn::Or" : [
+                {
+                "Fn::Equals": [
+                    { 
+                        "Fn::Length" : { 
+                            "Ref" :"PrivateSubnets"
+                        }
+                    },
+                    7
+                ]},
+                {
+                    "Condition" :
+                    "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax8":{
+            "Fn::Equals": [
+                { 
+                    "Fn::Length" : { 
+                        "Ref" :"PrivateSubnets"
+                    }
+                },
+                8
+            ]
+        },
+        "existsX64Server": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    { 
+                        "Ref": "InstanceTypeX64"
+                    },
+                    ""
+                ]
+            }]
+        },
+        "existsARMServer": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    { 
+                        "Ref": "InstanceTypeARM"
+                    },
+                    ""
+                ]
+            }]
+        },
+        "existsScaleUpConfig": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    { 
+                        "Ref": "InstanceScaleUpConfig"
+                    },
+                    ""
+                ]
+            }]
+        },
+        "existsScaleDownConfig": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    { 
+                        "Ref": "InstanceScaleDownConfig"
+                    },
+                    ""
+                ]
+            }]
+        },
+        "existsScheduledScaleUp1": {
+            "Fn::Equals": [
+                { 
+                    "Ref": "ASGScheduledScaleUpState"
+                },
+                "enabled"
+            ]
+        },
+        "existsScheduledScaleDown1": {
+            "Fn::Equals": [
+                { 
+                    "Ref": "ASGScheduledScaleDownState"
+                },
+                "enabled"
+            ]
+        },
+        "ArmServer1":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsARMServer"
+                },
+                {
+                    "Fn::Equals": [
+                        { 
+                            "Fn::Length" : { 
+                                "Fn::Split" : [
+                                    ",",
+                                    {   
+                                    "Ref" :"InstanceTypeARM"
+                                    }
+                                ]
+                            }  
+                        },
+                        1
+                    ]
+                }
+            ]   
+        },
+        "ArmServer2":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsARMServer"
+                },
+                {
+                    "Fn::Equals": [
+                        { 
+                            "Fn::Length" : { 
+                                "Fn::Split" : [
+                                    ",",
+                                    {   
+                                    "Ref" :"InstanceTypeARM"
+                                    }
+                                ]
+                            }  
+                        },
+                        2
+                    ]
+                }
+            ]   
+        },
+        "ArmServer3":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsARMServer"
+                },
+                {
+                    "Fn::Equals": [
+                        { 
+                            "Fn::Length" : { 
+                                "Fn::Split" : [
+                                    ",",
+                                    {   
+                                    "Ref" :"InstanceTypeARM"
+                                    }
+                                ]
+                            }  
+                        },
+                        3
+                    ]
+                }
+            ]   
+        },
+        "X64Server1":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsX64Server"
+                },
+                {
+                    "Fn::Or" : [
+                        {
+                            "Fn::Equals": [
+                                { 
+                                    "Fn::Length" : { 
+                                        "Fn::Split" : [
+                                            ",",
+
+                                            {   
+                                            "Ref" :"InstanceTypeX64"
+                                            }
+                                        ]
+                                    }  
+                                },
+                                1
+                            ]
+                        },
+                        {
+                            "Condition" :
+                            "X64Server2"
+                        },
+                        {
+                            "Condition" :
+                            "X64Server3"
+                        }
+                    ]
+                }
+            ]   
+        },
+        "X64Server2":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsX64Server"
+                },
+                {
+                    "Fn::Or" : [
+                        {
+                            "Fn::Equals": [
+                                { 
+                                    "Fn::Length" : { 
+                                        "Fn::Split" : [
+                                            ",",
+
+                                            {   
+                                            "Ref" :"InstanceTypeX64"
+                                            }
+                                        ]
+                                    }  
+                                },
+                                2
+                            ]
+                        },
+                        {
+                            "Condition" :
+                            "X64Server3"
+                        }
+                    ]
+                }    
+            ]       
+        },
+        "X64Server3":{
+            "Fn::And" : [
+                {
+                    "Condition" :
+                    "existsX64Server"
+                },
+                {
+                    "Fn::Equals": [
+                        { 
+                            "Fn::Length" : { 
+                                "Fn::Split" : [
+                                    ",",
+
+                                    {   
+                                    "Ref" :"InstanceTypeX64"
+                                    }
+                                ]
+                            }  
+                        },
+                        3
+                    ]
+                }
+            ]   
+        },
+        "CreateCWAgentconfig": {
+            "Fn::Not": [{
+                "Fn::Equals": [
+                    {
+                        "Ref": "CWLogsandMetricsConfig"
+                    },
+                    "none"
+                ]
+            }]
+        },
+        "CWAgentconfigMinimal": {
+            "Fn::Equals": [
+                {
+                    "Ref": "CWLogsandMetricsConfig"
+                },
+                "minimal"
+            ]
+        },
+        "CWAgentconfigBasic": {
+            "Fn::Equals": [
+                {
+                    "Ref": "CWLogsandMetricsConfig"
+                },
+                "basic"
+            ]
+        },
+        "CWAgentconfigStandard": {
+            "Fn::Equals": [
+                {
+                    "Ref": "CWLogsandMetricsConfig"
+                },
+                "standard"
+            ]
+        }
+    },
+    "Resources": {
+        "NATM8SG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow web traffic for updates through NAT, and SSH from local addresses.",
+                "VpcId": {
+                    "Ref": "VpcId"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "icmp",
+                        "FromPort": -1,
+                        "ToPort": -1,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": 33434,
+                        "ToPort": 33474,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "icmp",
+                        "FromPort": -1,
+                        "ToPort": -1,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": {
+                            "Ref": "VpcCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": 33434,
+                        "ToPort": 33474,
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "NatServerSG"
+                    },
+                    {
+                        "Key": "StackName",
+                        "Value": {
+                            "Fn::Sub": "${AWS::StackName}"
+                        }
+                    }
+                ]
+            }
+        },
+        "NATM8Role": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "sts:AssumeRole",
+                            "Principal": {
+                                "Service": "ec2.amazonaws.com"
+                            }
+                        }
+                    ]
+                },
+                "Path": "/",
+                "ManagedPolicyArns":["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"],
+                "Policies": [
+                    {
+                        "PolicyName": "NAT_instance",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Action": [
+                                        "ec2:DescribeTags",
+                                        "ec2:DescribeRouteTables",
+                                        "ec2:DescribeVpcs",
+                                        "ec2:DescribeSubnets",
+                                        "ec2:DescribeInstances",
+                                        "autoscaling:DescribeAutoScalingInstances",
+                                        "autoscaling:DescribeAutoScalingGroups",
+                                        "logs:DescribeLogStreams",
+                                        "cloudwatch:GetMetricStatistics",
+                                        "cloudwatch:GetMetricData",
+                                        "cloudwatch:PutMetricData"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Sid": "debug",
+                                    "Action": [
+                                        "sts:DecodeAuthorizationMessage"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Action": [
+                                        "ec2:CreateTags",
+                                        "ec2:ModifyInstanceAttribute"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "ec2:ResourceTag/StackName": {
+                                                "Fn::Sub": "${AWS::StackName}"
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "Sid":"LimitActionToAllRoutesInVPC",
+                                    "Action": [
+                                        "ec2:DisassociateRouteTable"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "ec2:Vpc":  { 
+                                                "Fn::Join": [
+                                                    "",
+                                                    [
+                                                        { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc/"},
+                                                        { 
+                                                         "Ref": "VpcId"
+                                                        }
+                                                    ]
+                                                ]
+                                            }
+                                            
+                                        }
+                                    }
+
+                                },
+                                {
+                                    "Sid":"LimitActionToSpecificRoutesInVPC",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:AssociateRouteTable",
+                                        "ec2:ReplaceRoute",
+                                        "ec2:CreateRoute"
+                                    ],
+                                    "Resource": [
+                                        { 
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                    { 
+                                                    "Fn::Select" : [ "0", {"Ref": "PrivateSubnets"}] 
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax2",
+                                                {                                                 
+                                                "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "1", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                        "Fn::If": [
+                                            "PrivatesubnetNumberMax3",
+                                            { 
+                                                "Fn::Join": [
+                                                    "",
+                                                    [
+                                                        { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                        { 
+                                                        "Fn::Select" : [ "2", {"Ref": "PrivateSubnets"}] 
+                                                        }
+                                                    ]
+                                                ]
+                                            },
+                                            {"Ref" : "AWS::NoValue"}
+                                        ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax4",
+                                                { 
+                                                    "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "3", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax5",
+                                                { 
+                                                    "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "4", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax6",
+                                                { 
+                                                    "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "5", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax7",
+                                                { 
+                                                    "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "6", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax8",
+                                                { 
+                                                    "Fn::Join": [
+                                                        "",
+                                                        [
+                                                            { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                                                            { 
+                                                            "Fn::Select" : [ "7", {"Ref": "PrivateSubnets"}] 
+                                                            }
+                                                        ]
+                                                    ]
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        { 
+                                            "Fn::Sub": [
+                                                "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable1}",
+                                                {
+                                                    "RouteTable1": {
+                                                        "Ref": "RouteTable1"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax2",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable2}",
+                                                        {
+                                                            "RouteTable2": {
+                                                                "Ref": "RouteTable2"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        },
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax3",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable3}",
+                                                        {
+                                                            "RouteTable3": {
+                                                                "Ref": "RouteTable3"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }, 
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax4",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable4}",
+                                                        {
+                                                            "RouteTable4": {
+                                                                "Ref": "RouteTable4"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }, 
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax5",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable5}",
+                                                        {
+                                                            "RouteTable5": {
+                                                                "Ref": "RouteTable5"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }, 
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax6",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable6}",
+                                                        {
+                                                            "RouteTable6": {
+                                                                "Ref": "RouteTable6"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }, 
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax7",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable7}",
+                                                        {
+                                                            "RouteTable7": {
+                                                                "Ref": "RouteTable7"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }, 
+                                        {
+                                            "Fn::If": [
+                                                "PrivatesubnetNumberMax8",
+                                                { 
+                                                    "Fn::Sub": [
+                                                        "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:route-table/${RouteTable8}",
+                                                        {
+                                                            "RouteTable8": {
+                                                                "Ref": "RouteTable8"
+                                                            }
+                                                        }
+                                                    ]                                                
+                                                },
+                                                {"Ref" : "AWS::NoValue"}
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "Fn::If": [
+                                        "LocalS3bucketspecified",
+                                        { 
+                                            "Effect": "Allow",
+                                            "Action": [
+                                                "s3:GetObject"
+                                            ],
+                                            "Resource": {
+                                                "Fn::Sub": [
+                                                    "arn:aws:s3:::${bucketname}/*",
+                                                    {
+                                                        "bucketname": {
+                                                            "Ref": "NATConfigBucket"
+                                                        }
+                                                    }
+                                                ]
+                                            }                                                
+                                        },
+                                        {"Ref" : "AWS::NoValue"}
+                                    ]
+                                },
+                                {
+                                    "Action": [
+                                        "s3:ListAllMyBuckets",
+                                        "s3:ListBucket"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Sid": "cwlogshipping",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/NAT_M8/*:log-stream:*"
+                                    }
+                                },
+                                {
+                                    "Sid": "autoscaleupdownprotectinstances",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "autoscaling:SetDesiredCapacity",
+                                        "autoscaling:SetInstanceProtection"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Sub": "arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/NATM8"
+                                    }
+                                } 
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "NATM8Profile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Roles": [
+                    {
+                        "Ref": "NATM8Role"
+                    }
+                ]
+            }
+        },
+        "NATM8ScalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AutoScalingGroupName":"NATM8",
+                "CapacityRebalance": true,
+                "DesiredCapacity": {
+                    "Ref": "InstanceDesiredNumber"
+                },
+                "MixedInstancesPolicy" : {
+                    "InstancesDistribution" : {
+                        "SpotAllocationStrategy":"price-capacity-optimized",
+                        "OnDemandPercentageAboveBaseCapacity":0
+                    },
+                    "LaunchTemplate" : {
+                        "LaunchTemplateSpecification" : {
+                            "LaunchTemplateId": { 
+                                    "Fn::If" : [
+                                      "existsX64Server",
+                                        {"Ref": "LaunchTemplatex64" },
+                                        {"Ref": "LaunchTemplateARM" }
+                                    ]
+                            },
+                            "Version": { 
+                                "Fn::If" : [
+                                    "existsX64Server",
+                                    {
+                                        "Fn::GetAtt": [ 
+                                        "LaunchTemplatex64", 
+                                        "LatestVersionNumber" 
+                                        ]
+                                    },
+                                    {
+                                        "Fn::GetAtt": [ 
+                                        "LaunchTemplateARM", 
+                                        "LatestVersionNumber" 
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "Overrides":[
+                            {
+                                "Fn::If": [
+                                    "X64Server1",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                0,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeX64"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-x64",
+                                            "Version":{
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplatex64", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            },
+                            {
+                                "Fn::If": [
+                                    "X64Server2",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                1,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeX64"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-x64",
+                                            "Version":                                     {
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplatex64", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            },
+                            {
+                                "Fn::If": [
+                                    "X64Server3",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                2,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeX64"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-x64",
+                                            "Version":                                     {
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplatex64", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            },
+                            {
+                                "Fn::If": [
+                                    "ArmServer1",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                0,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeARM"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-ARM",
+                                            "Version":                                     {
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplateARM", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            },
+                            {
+                                "Fn::If": [
+                                    "ArmServer2",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                1,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeARM"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-ARM",
+                                            "Version":                                     {
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplateARM", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            },
+                            {
+                                "Fn::If": [
+                                    "ArmServer3",
+                                    {
+                                        "InstanceType" :{ 
+                                            "Fn::Select" : [ 
+                                                2,
+                                                {
+                                                    "Fn::Split" : [ 
+                                                        ",", 
+                                                        { 
+                                                            "Ref": "InstanceTypeARM"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "LaunchTemplateSpecification": {
+                                            "LaunchTemplateName": "NATM8-launch-template-ARM",
+                                            "Version":                                     {
+                                                "Fn::GetAtt": [ 
+                                                "LaunchTemplateARM", 
+                                                "LatestVersionNumber" 
+                                                ]
+                                            }
+                                        }
+                                    },    
+                                    {"Ref" : "AWS::NoValue"}
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "MinSize": {
+                    "Ref": "InstanceMinimumNumber"
+                },
+                "MaxSize": { "Fn::Length" : { "Ref" :"PrivateSubnets"}  },
+                "VPCZoneIdentifier": {
+                    "Ref": "PublicSubnets"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "NAT-M8",
+                        "PropagateAtLaunch": true
+                    },
+                    {
+                        "Key": "StackName",
+                        "Value": {
+                            "Fn::Sub": "${AWS::StackName}"
+                        },
+                        "PropagateAtLaunch": true
+                    },
+                    {
+                        "Key": "PrivateSubnets",
+                        "Value": { 
+                            "Fn::ToJsonString": {
+                            "Ref":"PrivateSubnets"
+                        }
+                    },
+                        "PropagateAtLaunch": true
+                    },
+                    {
+                        "Key": "ScaleUPConfig",
+                        "Value":  {
+                            "Fn::If": [
+                                "existsScaleUpConfig",
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "{\"CpuThreshold\": ",
+                                            {
+                                                "Fn::Select" : [ 
+                                                        0,
+                                                    {
+                                                        "Fn::Split": [
+                                                            "/",
+                                                            { 
+                                                                    "Ref": "InstanceScaleUpConfig"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            " ,",
+                                            "\"TimePeriod\": ",
+                                            {
+                                                "Fn::Select" : [ 
+                                                        1,
+                                                    {
+                                                        "Fn::Split": [
+                                                            "/",
+                                                            { 
+                                                                    "Ref": "InstanceScaleUpConfig"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "}"
+                                    ]
+                                    ]                              
+                                },
+                                "Scaleup configuration not specified, most cases its better to configure scale up"
+
+                            ]
+                        },
+                        "PropagateAtLaunch": true
+                    },
+                    {
+                        "Key": "ScaleDownConfig",
+                        "Value":  {
+                            "Fn::If": [
+                                "existsScaleDownConfig",
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "{\"NetworkThreshold\": ",
+                                            {
+                                                "Fn::Select" : [ 
+                                                        0,
+                                                    {
+                                                        "Fn::Split": [
+                                                            "/",
+                                                            { 
+                                                                    "Ref": "InstanceScaleDownConfig"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            " ,",
+                                            "\"TimePeriod\": ",
+                                            {
+                                                "Fn::Select" : [ 
+                                                        1,
+                                                    {
+                                                        "Fn::Split": [
+                                                            "/",
+                                                            { 
+                                                                    "Ref": "InstanceScaleDownConfig"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "}"
+                                    ]
+                                    ]                              
+                                },
+                                "Scaleup configuration not specified, most cases its better to configure scale up"
+
+                            ]
+                        },
+                        "PropagateAtLaunch": true
+                    },
+                    {
+                        "Key": "LogFrequency",
+                        "Value": { 
+                            "Fn::FindInMap" : [ "Constants", "LogFrequency", "Minute"]
+                        },
+                        "PropagateAtLaunch": true
+                    }
+                ]
+            },
+            "CreationPolicy": {
+              "ResourceSignal": {
+                "Count": {
+                    "Ref": "InstanceDesiredNumber"
+                },
+                "Timeout": "PT10M"
+              }
+            },
+            "UpdatePolicy": {
+                "AutoScalingRollingUpdate": {
+                    "MinInstancesInService": {
+                        "Ref": "InstanceMinimumNumber"
+                    },
+                    "MaxBatchSize": "1",
+                    "PauseTime": "PT10M",
+                    "WaitOnResourceSignals": "true"
+                }
+            }
+        },
+        "LaunchTemplatex64":{
+            "Type" : "AWS::EC2::LaunchTemplate",
+            "Condition": "existsX64Server",
+            "Metadata" : {
+                "AWS::CloudFormation::Init" : {
+                    "config" : {
+                        "packages" : {
+                            "yum" : {
+                                "jq":[],
+                                "nano":[],
+                                "amazon-cloudwatch-agent":[],
+                                "htop":[]
+                            }
+                        },
+                        "files" : {
+                            "/tmp/setup.nat" : {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "#!/bin/bash --verbose \n\n",
+                                            "cd /tmp\n\n",
+                                            "# Populate variables from dynamically generated files\n",
+                                            "INSTANCE_ID=$(cat /tmp/INSTANCEID)\n",
+                                            "REGION=$(cat /tmp/REGION)\n",
+                                            "STACK_NAME=$(cat /tmp/STACKNAME)\n",
+                                            "VPCCIDR=$(cat /tmp/VPC_CIDR)\n\n",
+                                            "# Disable source/destination IP check so forwarding will work\n",
+                                            "aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --source-dest-check \"{\\\"Value\\\": false}\" --region ${REGION}\n\n",
+                                            "# Turn on IPV4 forwarding\n",
+                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.conf\n",
+                                            "sysctl -p\n\n",
+                                            "# Enable iptables to start on boot, and start it now with a clean slate / no rules\n",
+                                            "systemctl enable iptables\n",
+                                            "systemctl start iptables\n",
+                                            "iptables -F\n\n",
+                                            "# Enable nat in iptables for our VPC CIDDR\n",
+                                            "iptables -t nat -A POSTROUTING -o eth0 -s ${VPCCIDR} -j MASQUERADE\n\n",
+                                            "# Configure iptables:\n",
+                                            "# 1. accept anything on the loopback adapter\n",
+                                            "# 2. accept incoming packets that belong to a connection that has already been established\n",
+                                            "# 3. accept udp on ports 67:68 (DHCP, only from our VPC CIDR range)\n",
+                                            "# 4. accept tcp on port 22 (SSH, only from our VPC CIDR)\n",
+                                            "# 5. drop anything else\n",
+                                            "iptables -A INPUT -i lo -j ACCEPT\n",
+                                            "iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
+                                            "iptables -A INPUT -p udp --dport 67:68 --sport 67:68 -s ${VPCCIDR} -j ACCEPT\n",
+                                            "iptables -A INPUT -p tcp -m tcp --dport 22 -s ${VPCCIDR} -j ACCEPT\n",
+                                            "iptables -A INPUT -j DROP\n",
+                                            "# reject (not drop) packets for inbound traceroutes from Linux boxes\n",
+                                            "iptables -I INPUT -p udp --dport 33434:33474 -j REJECT\n",
+                                            "# accept ping requests for Windows-style traceroutes\n",
+                                            "iptables -I INPUT -p ICMP --icmp-type echo-request -j ACCEPT\n",
+                                            "# allow ping responses for Windows-style traceroutes\n",
+                                            "iptables -I OUTPUT -p ICMP --icmp-type echo-reply -j ACCEPT\n",
+                                            "# allow the server to perform its own traceroutes\n",
+                                            "iptables -I OUTPUT -p udp --dport 33434:33474 -j ACCEPT\n\n",
+                                            "# And persist the iptables config\n",
+                                            "iptables-save > /etc/sysconfig/iptables"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/VPC_CIDR":{
+                                "content":{
+                                    "Ref": "VpcCidr"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/VPC_ID":{
+                                "content":{
+                                    "Ref": "VpcId"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/STACKNAME":{
+                                "content":{
+                                    "Ref": "AWS::StackName"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/REGION":{
+                                "content":{
+                                    "Ref": "AWS::Region"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/var/log/natm8.log":{
+                                "content":"Thanks for using NAT M8, we hope you enjoy it!\n",
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/etc/systemd/system/natm8.service":{
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "[Unit]\n",
+                                            "Description=Runs logic to update routes to NAT servers and if needed route table <-> Subnet associations\n",
+                                            "Wants=natm8.timer\n\n",
+                                            "[Service]\n",
+                                            "#StandardOutput=append:/var/log/natm8.log\n",
+                                            "#ExecStart=/usr/bin/pwsh -F /tmp/ConfigureRoutes.ps1\n",
+                                            "ExecStart=/tmp/natm8.sh\n",
+                                            "WorkingDirectory=/tmp\n",
+                                            "User=root\n",
+                                            "Group=root\n\n",
+                                            "[Install]\n",
+                                            "WantedBy=multi-user.target\n"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/etc/systemd/system/natm8.timer":{
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "[Unit]\n",
+                                            "Description=Run ConfigureRoutes every X minutes\n",
+                                            "Requires=natm8.service\n\n",
+                                            "[Timer]\n",
+                                            "Unit=natm8.service\n",
+                                            "OnCalendar=*-*-* *:*:00\n",
+                                            "#every 3 minute\n",
+                                            "#OnCalendar=*:0/3\n\n",
+                                            "[Install]\n",
+                                            "WantedBy=timers.target"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/natm8.sh":{
+                                "content":{
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "#!/bin/bash --verbose\n",
+                                            "/usr/bin/pwsh -F /tmp/ConfigureRoutes.ps1  2>&1 >> /var/log/natm8.log"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            }
+                        },
+                        "commands" : {
+                            "0set_dynamic_variables":{
+                                "command": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "TOKEN=`curl -X PUT \"http://169.254.169.254/latest/api/token\" -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\"`&&\n",
+                                            "MAC=$(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/network/interfaces/macs/) &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/instance-id)> /tmp/INSTANCEID &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/placement/availability-zone)> /tmp/AZ_NAME &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/network/interfaces/macs/${MAC}/interface-id)> /tmp/ENI_ID &&\n",
+                                            "echo $(aws ec2 describe-subnets --filters \"Name=vpc-id,Values=\\\"$VPC_ID\\\"\" --region $REGION)> /tmp/ALL_SUBNETS_LIST &&\n",
+                                            "echo $(aws ec2 describe-tags --filters \"Name=resource-id,Values=\\\"$(cat /tmp/INSTANCEID)\\\"\" --region $REGION)> /tmp/TAGS\n"
+                                        ]
+                                    ]
+                                },
+                                "env" : {
+                                        "VPC_ID" : {
+                                            "Ref": "VpcId"
+                                        }, 
+                                        "REGION" : {
+                                            "Ref": "AWS::Region"
+                                        }
+                                }
+                            },
+                            "1install_dependencies":{
+                             "command": {
+                                 "Fn::Join": [
+                                        "",
+                                        [
+                                        "yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n",
+                                        "yum -y install iptables-services fail2ban\n",
+                                        "curl https://packages.microsoft.com/config/rhel/7/prod.repo | sudo tee /etc/yum.repos.d/microsoft.repo\n",
+                                        "sudo yum install --assumeyes powershell\n",
+                                        "/tmp/setup.nat\n\n"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "2get_and_run_script":{
+                                "command":{ 
+                                    "Fn::If": [
+                                        "LocalS3bucketspecified",
+                                        {
+                                            "Fn::Join":[
+                                                "",
+                                                [
+                                                    "aws s3 cp s3://",
+                                                    {
+                                                        "Ref": "NATConfigBucket"
+                                                    },
+                                                    "/",
+                                                    {
+                                                        "Ref": "NATRoutingScript"
+                                                    },
+                                                    " /tmp/ConfigureRoutes.ps1\n\n",
+                                                    "pwsh /tmp/ConfigureRoutes.ps1\n"
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    {
+                                                        "Fn::Sub": [
+                                                            "curl -L -o /tmp/ConfigureRoutes.ps1 ${URL}\n",
+                                                            {
+                                                                "URL": { 
+                                                                    "Fn::FindInMap" : [ "Constants", "Script", "Url"]
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    "pwsh /tmp/ConfigureRoutes.ps1\n"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            "3Configure_CloudWatch":{
+                                "command":{ 
+                                    "Fn::If": [
+                                        "CreateCWAgentconfig",
+                                        {
+                                            "Fn::Sub": [
+                                                "aws ssm get-parameter --name /NAT_M8/${Config} --region $(cat /tmp/REGION)|jq -r .Parameter.Value >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+                                                {
+                                                    "Config": {                    
+                                                        "Fn::Join": [
+                                                            "",
+                                                            [
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigMinimal",
+                                                                        "CWLogsConfigMinimal",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigBasic",
+                                                                        "CWLogsConfigBasic",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigStandard",
+                                                                        "CWLogsConfigStandard",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "echo \"No logging configuraution set,  minimal logging is recommended\"!"
+                                    ]
+                                }
+                            }
+                        },
+                        "services" : {
+                            "systemd": {
+                              "natm8" : {
+                                "enabled" : "true",
+                                "ensureRunning" : "true"
+                              },
+                              "amazon-cloudwatch-agent" : {
+                                "enabled" : "true",
+                                "ensureRunning" : "true"
+                              }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties" : {
+                "LaunchTemplateData" : {
+                    "BlockDeviceMappings":[{
+                        "Ebs":{
+                          "VolumeSize":"8",
+                          "VolumeType":"gp3",
+                          "DeleteOnTermination": true,
+                          "Encrypted": true
+                        },
+                        "DeviceName":"/dev/xvda"
+                    }],
+                    "ImageId": {
+                        "Ref": "NatServerAMIidX64"
+                    },
+                    "IamInstanceProfile": {
+                        "Name":{
+                            "Ref": "NATM8Profile"
+                        }
+                    },
+                    "MetadataOptions":{
+                        "HttpTokens":"required"
+                    },
+                    "Monitoring":{
+                        "Enabled" : false
+                    },
+                    "SecurityGroupIds": [
+                        { "Fn::GetAtt" : ["NATM8SG", "GroupId"] }
+                    ],
+                    "UserData": {
+                        "Fn::Base64": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "#!/bin/bash --verbose\n",
+                                    "yum -y update\n",
+                                    "\n\n",
+                                    "/opt/aws/bin/cfn-init -v --stack ", 
+                                    {
+                                        "Ref": "AWS::StackName"
+                                    }," --resource LaunchTemplatex64 --region ",{
+                                        "Ref": "AWS::Region"
+                                    },
+                                    "\n\n",
+                                    "/opt/aws/bin/cfn-signal -e 0 --stack ", 
+                                    {
+                                        "Ref": "AWS::StackName"
+                                    }," --resource NATM8ScalingGroup --region ",{
+                                        "Ref": "AWS::Region"
+                                    },
+                                    "\n\n",
+                                    "#TODO change e to $?"
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "LaunchTemplateName": "NATM8-launch-template-x64"
+            }  
+        },
+        "LaunchTemplateARM":{
+            "Type" : "AWS::EC2::LaunchTemplate",
+            "Condition": "existsARMServer",
+            "Metadata" : {
+                "AWS::CloudFormation::Init" : {
+                    "config" : {
+                        "packages" : {
+                            "yum" : {
+                                "jq":[],
+                                "nano":[],
+                                "amazon-cloudwatch-agent":[],
+                                "htop":[]
+                            }
+                        },
+                        "files" : {
+                            "/tmp/setup.nat" : {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "#!/bin/bash --verbose \n\n",
+                                            "cd /tmp\n\n",
+                                            "# Populate variables from dynamically generated files\n",
+                                            "INSTANCE_ID=$(cat /tmp/INSTANCEID)\n",
+                                            "REGION=$(cat /tmp/REGION)\n",
+                                            "STACK_NAME=$(cat /tmp/STACKNAME)\n",
+                                            "VPCCIDR=$(cat /tmp/VPC_CIDR)\n\n",
+                                            "# Disable source/destination IP check so forwarding will work\n",
+                                            "aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --source-dest-check \"{\\\"Value\\\": false}\" --region ${REGION}\n\n",
+                                            "# Turn on IPV4 forwarding\n",
+                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.conf\n",
+                                            "sysctl -p\n\n",
+                                            "# Enable iptables to start on boot, and start it now with a clean slate / no rules\n",
+                                            "systemctl enable iptables\n",
+                                            "systemctl start iptables\n",
+                                            "iptables -F\n\n",
+                                            "# Enable nat in iptables for our VPC CIDDR\n",
+                                            "iptables -t nat -A POSTROUTING -o eth0 -s ${VPCCIDR} -j MASQUERADE\n\n",
+                                            "# Configure iptables:\n",
+                                            "# 1. accept anything on the loopback adapter\n",
+                                            "# 2. accept incoming packets that belong to a connection that has already been established\n",
+                                            "# 3. accept udp on ports 67:68 (DHCP, only from our VPC CIDR range)\n",
+                                            "# 4. accept tcp on port 22 (SSH, only from our VPC CIDR)\n",
+                                            "# 5. drop anything else\n",
+                                            "iptables -A INPUT -i lo -j ACCEPT\n",
+                                            "iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
+                                            "iptables -A INPUT -p udp --dport 67:68 --sport 67:68 -s ${VPCCIDR} -j ACCEPT\n",
+                                            "iptables -A INPUT -p tcp -m tcp --dport 22 -s ${VPCCIDR} -j ACCEPT\n",
+                                            "iptables -A INPUT -j DROP\n",
+                                            "# reject (not drop) packets for inbound traceroutes from Linux boxes\n",
+                                            "iptables -I INPUT -p udp --dport 33434:33474 -j REJECT\n",
+                                            "# accept ping requests for Windows-style traceroutes\n",
+                                            "iptables -I INPUT -p ICMP --icmp-type echo-request -j ACCEPT\n",
+                                            "# allow ping responses for Windows-style traceroutes\n",
+                                            "iptables -I OUTPUT -p ICMP --icmp-type echo-reply -j ACCEPT\n",
+                                            "# allow the server to perform its own traceroutes\n",
+                                            "iptables -I OUTPUT -p udp --dport 33434:33474 -j ACCEPT\n\n",
+                                            "# And persist the iptables config\n",
+                                            "iptables-save > /etc/sysconfig/iptables"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/VPC_CIDR":{
+                                "content":{
+                                    "Ref": "VpcCidr"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/VPC_ID":{
+                                "content":{
+                                    "Ref": "VpcId"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/STACKNAME":{
+                                "content":{
+                                    "Ref": "AWS::StackName"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/REGION":{
+                                "content":{
+                                    "Ref": "AWS::Region"
+                                },
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/var/log/natm8.log":{
+                                "content":"Thanks for using NAT M8, we hope you enjoy it!\n",
+                                "mode"  : "000644",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/etc/systemd/system/natm8.service":{
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "[Unit]\n",
+                                            "Description=Runs logic to update routes to NAT servers and if needed route table <-> Subnet associations\n",
+                                            "Wants=natm8.timer\n\n",
+                                            "[Service]\n",
+                                            "#StandardOutput=append:/var/log/natm8.log\n",
+                                            "#ExecStart=/usr/bin/pwsh -F /tmp/ConfigureRoutes.ps1\n",
+                                            "ExecStart=/tmp/natm8.sh\n",
+                                            "WorkingDirectory=/tmp\n",
+                                            "User=root\n",
+                                            "Group=root\n\n",
+                                            "[Install]\n",
+                                            "WantedBy=multi-user.target\n"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/etc/systemd/system/natm8.timer":{
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "[Unit]\n",
+                                            "Description=Run ConfigureRoutes every X minutes\n",
+                                            "Requires=natm8.service\n\n",
+                                            "[Timer]\n",
+                                            "Unit=natm8.service\n",
+                                            "OnCalendar=*-*-* *:*:00\n",
+                                            "#every 3 minute\n",
+                                            "#OnCalendar=*:0/3\n\n",
+                                            "[Install]\n",
+                                            "WantedBy=timers.target"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            },
+                            "/tmp/natm8.sh":{
+                                "content":{
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "#!/bin/bash --verbose\n",
+                                            "/usr/bin/pwsh -F /tmp/ConfigureRoutes.ps1  2>&1 >> /var/log/natm8.log"
+                                        ]
+                                    ]
+                                },
+                                "mode"  : "000744",
+                                "owner" : "root",
+                                "group" : "root"   
+                            }
+                            
+                        },
+                        "commands" : {
+                            "0set_dynamic_variables":{
+                                "command": {
+                                    "Fn::Join": [
+                                        "",
+                                        [   
+                                            "TOKEN=`curl -X PUT \"http://169.254.169.254/latest/api/token\" -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\"`&&\n",
+                                            "MAC=$(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/network/interfaces/macs/) &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/instance-id)> /tmp/INSTANCEID &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/placement/availability-zone)> /tmp/AZ_NAME &&\n",
+                                            "echo $(curl -H \"X-aws-ec2-metadata-token: $TOKEN\" -v http://169.254.169.254/latest/meta-data/network/interfaces/macs/${MAC}/interface-id)> /tmp/ENI_ID &&\n",
+                                            "echo $(aws ec2 describe-subnets --filters \"Name=vpc-id,Values=\\\"$VPC_ID\\\"\" --region $REGION)> /tmp/ALL_SUBNETS_LIST &&\n",
+                                            "echo $(aws ec2 describe-tags --filters \"Name=resource-id,Values=\\\"$(cat /tmp/INSTANCEID)\\\"\" --region $REGION)> /tmp/TAGS\n"
+                                        ]
+                                    ]
+                                },
+                                "env" : {
+                                        "VPC_ID" : {
+                                            "Ref": "VpcId"
+                                        }, 
+                                        "REGION" : {
+                                            "Ref": "AWS::Region"
+                                        }
+                                }
+                            },
+                            "1install_dependencies":{
+                             "command": {
+                                 "Fn::Join": [
+                                        "",
+                                        [
+                                        "yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n",
+                                        "yum -y install iptables-services fail2ban\n",
+                                        "# TODO: create a call that receives the latest (non-dev) version of powershell, till than use hardcoded latest value\n",
+                                        "# Download the powershell '.tar.gz' archive\n",
+                                        "curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.3.4/powershell-7.3.4-linux-arm64.tar.gz\n\n",
+                                        "# Create the target folder where powershell will be placed\n",
+                                        "sudo mkdir -p /opt/microsoft/powershell/7\n\n",
+                                        "# Expand powershell to the target folder\n",
+                                        "sudo tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7\n\n",
+                                        "# Set execute permissions\n",
+                                        "sudo chmod +x /opt/microsoft/powershell/7/pwsh\n\n",
+                                        "# Create the symbolic link that points to pwsh\n",
+                                        "sudo ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh\n\n",
+                                        "/tmp/setup.nat\n\n"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "2get_and_run_script":{
+                                "command":{ 
+                                    "Fn::If": [
+                                        "LocalS3bucketspecified",
+                                        {
+                                            "Fn::Join":[
+                                                "",
+                                                [
+                                                    "aws s3 cp s3://",
+                                                    {
+                                                        "Ref": "NATConfigBucket"
+                                                    },
+                                                    "/",
+                                                    {
+                                                        "Ref": "NATRoutingScript"
+                                                    },
+                                                    " /tmp/ConfigureRoutes.ps1\n\n",
+                                                    "pwsh /tmp/ConfigureRoutes.ps1\n"
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    {
+                                                        "Fn::Sub": [
+                                                            "curl -L -o /tmp/ConfigureRoutes.ps1 ${URL}\n",
+                                                            {
+                                                                "URL": { 
+                                                                    "Fn::FindInMap" : [ "Constants", "Script", "Url"]
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    "pwsh /tmp/ConfigureRoutes.ps1\n"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            "3Configure_CloudWatch":{
+                                "command":{ 
+                                    "Fn::If": [
+                                        "CreateCWAgentconfig",
+                                        {
+                                            "Fn::Sub": [
+                                                "aws ssm get-parameter --name /NAT_M8/${Config} --region $(cat /tmp/REGION)|jq -r .Parameter.Value >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+                                                {
+                                                    "Config": {                    
+                                                        "Fn::Join": [
+                                                            "",
+                                                            [
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigMinimal",
+                                                                        "CWLogsConfigMinimal",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigBasic",
+                                                                        "CWLogsConfigBasic",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "Fn::If": [
+                                                                        "CWAgentconfigStandard",
+                                                                        "CWLogsConfigStandard",
+                                                                        {"Ref" : "AWS::NoValue"}
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "echo \"No logging configuraution set,  minimal logging is recommended\"!"
+                                    ]
+                                }
+                            }
+                        },
+                        "services" : {
+                            "systemd": {
+                              "natm8" : {
+                                "enabled" : "true",
+                                "ensureRunning" : "true"
+                              },
+                              "amazon-cloudwatch-agent" : {
+                                "enabled" : "true",
+                                "ensureRunning" : "true"
+                              }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties" : {
+                "LaunchTemplateData" : {
+                    "BlockDeviceMappings":[{
+                        "Ebs":{
+                          "VolumeSize":"8",
+                          "VolumeType":"gp3",
+                          "DeleteOnTermination": true,
+                          "Encrypted": true
+                        },
+                        "DeviceName":"/dev/xvda"
+                    }],
+                    "ImageId": {
+                        "Ref": "NatServerAMIidARM"
+                    },
+                    "IamInstanceProfile": {
+                        "Name":{
+                            "Ref": "NATM8Profile"
+                        }
+                    },
+                    "MetadataOptions":{
+                        "HttpTokens":"required"
+                    },
+                    "Monitoring":{
+                        "Enabled" : false
+                    },
+                    "SecurityGroupIds": [
+                        { "Fn::GetAtt" : ["NATM8SG", "GroupId"] }
+                    ],
+                    "UserData": {
+                        "Fn::Base64": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "#!/bin/bash --verbose\n",
+                                    "yum -y update\n",
+                                    "\n\n",
+                                    "/opt/aws/bin/cfn-init -v --stack ", 
+                                    {
+                                        "Ref": "AWS::StackName"
+                                    }," --resource LaunchTemplateARM --region ",{
+                                        "Ref": "AWS::Region"
+                                    },
+                                    "\n\n",
+                                    "/opt/aws/bin/cfn-signal -e 0 --stack ", 
+                                    {
+                                        "Ref": "AWS::StackName"
+                                    }," --resource NATM8ScalingGroup --region ",{
+                                        "Ref": "AWS::Region"
+                                    },
+                                    "\n\n",
+                                    "#TODO change e 0 to $?"
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "LaunchTemplateName": "NATM8-launch-template-ARM"
+            }  
+        },
+        "RouteTable1":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 1" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "RouteTable2":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax2",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 2" } ]
+            }
+        },
+        "RouteTable3":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax3",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 3" } ]
+            }
+        },
+        "RouteTable4":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax4",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 4" } ]
+            }
+        },
+        "RouteTable5":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax5",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 5" } ]
+            }
+        },
+        "RouteTable6":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax6",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 6" } ]
+            }
+        },
+        "RouteTable7":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax7",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 7" } ]
+            }
+        },
+        "RouteTable8":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Condition":"PrivatesubnetNumberMax8",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 8" } ]
+            }
+        },
+        "CloudwatchLogsConfigMinimal": {
+            "Condition": "CWAgentconfigMinimal",
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/CWLogsConfigMinimal",
+                "Type": "String",
+                "Value": "{\n        \"agent\": {\n                \"run_as_user\": \"root\"\n        },\n        \"logs\": {\n                \"logs_collected\": {\n                        \"files\": {\n                                \"collect_list\": [\n                                        {\n                                              \"file_path\": \"/var/log/natm8.log\",\n                                                \"log_group_name\": \"/NAT_M8/ConfigureRoutes\",\n                                                \"log_stream_name\": \"{instance_id}\",\n                                                \"retention_in_days\": 30\n                                                          },\n                                        {\n                                                \"file_path\": \"/var/log/cfn-init-cmd.log\",\n                                                \"log_group_name\": \"/NAT_M8/CfnInitCmd\",\n                                                \"log_stream_name\": \"{instance_id}\",\n                                                \"retention_in_days\": 30\n                                        }\n                                ]\n                        }\n                }\n        }\n}",
+                "Description": "SSM Parameter for configuring CloudWatch logs data collection."
+            }
+        },
+        "CloudwatchLogsConfigBasic": {
+            "Condition": "CWAgentconfigBasic",
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/CWLogsConfigBasic",
+                "Type": "String",
+                "Value": "{\n  \"agent\": {\n    \"metrics_collection_interval\": 60,\n    \"run_as_user\": \"root\"\n  },\n  \"logs\": {\n    \"logs_collected\": {\n      \"files\": {\n        \"collect_list\": [{\n            \"file_path\": \"/var/log/natm8.log\",\n            \"log_group_name\": \"/NAT_M8/ConfigureRoutes\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 30\n          },\n          {\n            \"file_path\": \"/var/log/cfn-init-cmd.log\",\n            \"log_group_name\": \"/NAT_M8/CfnInitCmd\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 30\n          }\n        ]\n      }\n    }\n  },\n  \"metrics\": {\n    \"aggregation_dimensions\": [\n      [\n        \"InstanceId\"\n      ]\n    ],\n    \"metrics_collected\": {\n      \"disk\": {\n        \"measurement\": [\n          \"used_percent\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ]\n      },\n      \"mem\": {\n        \"measurement\": [\n          \"mem_used_percent\"\n        ],\n        \"metrics_collection_interval\": 60\n      }\n    }\n  }\n}",
+                "Description": "SSM Parameter for configuring CloudWatch logs data collection."
+            }
+        },
+        "CloudwatchLogsConfigStandard": {
+            "Condition": "CWAgentconfigStandard",
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/CWLogsConfigStandard",
+                "Type": "String",
+                "Value": "{\n                \"agent\": {\n                        \"metrics_collection_interval\": 60,\n                        \"run_as_user\": \"root\"\n                },\n                \"logs\": {\n                        \"logs_collected\": {\n                                \"files\": {\n                                        \"collect_list\": [\n                                                {\n                                                        \"file_path\": \"/var/log/natm8.log\",\n                                                        \"log_group_name\": \"/NAT_M8/ConfigureRoutes\",\n                                                        \"log_stream_name\": \"{instance_id}\",\n                                                        \"retention_in_days\": 30\n                                                },\n                                                {\n                                                        \"file_path\": \"/var/log/cfn-init-cmd.log\",\n                                                        \"log_group_name\": \"/NAT_M8/CfnInitCmd\",\n                                                        \"log_stream_name\": \"{instance_id}\",\n                                                        \"retention_in_days\": 30\n                                                }\n                                        ]\n                                }\n                        }\n                },\n                \"metrics\": {\n                        \"aggregation_dimensions\": [\n                                [\n                                        \"InstanceId\"\n                                ]\n                        ],\n                        \"metrics_collected\": {\n                                \"disk\": {\n                                        \"measurement\": [\n                                                \"used_percent\"\n                                        ],\n                                        \"metrics_collection_interval\": 60,\n                                        \"resources\": [\n                                                \"*\"\n                                        ]\n                                },\n                                \"diskio\": {\n                                        \"measurement\": [\n                                                \"reads\",\n                                                \"writes\"\n                                        ],\n                                        \"metrics_collection_interval\": 60,\n                                        \"resources\": [\n                                                \"*\"\n                                        ]\n                                },\n                                \"mem\": {\n                                        \"measurement\": [\n                                                \"mem_used_percent\",\n                                                \"active\",\n                                                \"available\"\n                                        ],\n                                        \"metrics_collection_interval\": 60\n                                }\n                        }\n                }\n            }",
+                "Description": "SSM Parameter for configuring CloudWatch logs data collection."
+            }
+        },
+        "LogGroupCfnInitCmd":{
+            "Condition": "CreateCWAgentconfig",
+            "Type" : "AWS::Logs::LogGroup",
+            "Properties" : {
+                "LogGroupName" : "/NAT_M8/CfnInitCmd",
+                "RetentionInDays" : 30
+            }
+        },
+        "LogGroupConfigureRoutes":{
+            "Condition": "CreateCWAgentconfig",
+            "Type" : "AWS::Logs::LogGroup",
+            "Properties" : {
+                "LogGroupName" : "/NAT_M8/ConfigureRoutes",
+                "RetentionInDays" : 30
+            }
+        },
+        "ScheduledScaleUp":{
+            "Condition":"existsScheduledScaleUp1",
+            "DependsOn" : [ "ScheduledScaleUpConfigDesiredCapacity", "ScheduledScaleUpConfigMinimumCapacity","ScheduledScaleUpConfigSchedule","ScheduledScaleUpConfigTimeZone"],
+            "Type" : "AWS::AutoScaling::ScheduledAction",
+            "Properties" : {
+                "AutoScalingGroupName" : {"Ref":"NATM8ScalingGroup"},
+                "DesiredCapacity" : "{{resolve:ssm:/NAT_M8/ASGScaleUpConfig/DesiredCapacity}}",
+                "MinSize" : "{{resolve:ssm:/NAT_M8/ASGScaleUpConfig/MinimumCapacity}}",
+                "Recurrence" : "{{resolve:ssm:/NAT_M8/ASGScaleUpConfig/Schedule}}",
+                "TimeZone" : "{{resolve:ssm:/NAT_M8/ASGScaleUpConfig/TimeZone}}"
+            }
+        },
+        "ScheduledScaleDown":{
+            "Condition":"existsScheduledScaleDown1",
+            "DependsOn" : [ "ScheduledScaleDownConfigDesiredCapacity", "ScheduledScaleDownConfigMinimumCapacity","ScheduledScaleDownConfigSchedule","ScheduledScaleDownConfigTimeZone"],
+            "Type" : "AWS::AutoScaling::ScheduledAction",
+            "Properties" : {
+                "AutoScalingGroupName" : {"Ref":"NATM8ScalingGroup"},
+                "DesiredCapacity" : "{{resolve:ssm:/NAT_M8/ASGScaleDownConfig/DesiredCapacity}}",
+                "MinSize" : "{{resolve:ssm:/NAT_M8/ASGScaleDownConfig/MinimumCapacity}}",
+                "Recurrence" : "{{resolve:ssm:/NAT_M8/ASGScaleDownConfig/Schedule}}",
+                "TimeZone" : "{{resolve:ssm:/NAT_M8/ASGScaleDownConfig/TimeZone}}"
+            }
+        },
+        "ScheduledScaleDownConfigDesiredCapacity": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleDownConfig/DesiredCapacity",
+                "Type": "String",
+                "Value": "1",
+                "Description": "As name implies ASG desired capacity for Scale down action."
+            }
+        },
+        "ScheduledScaleDownConfigMinimumCapacity": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleDownConfig/MinimumCapacity",
+                "Type": "String",
+                "Value": "0",
+                "Description": "As name implies ASG minimum capacity for Scale down action."
+            }
+        },
+        "ScheduledScaleDownConfigSchedule": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleDownConfig/Schedule",
+                "Type": "String",
+                "Value": "0 22 * * 1-5",
+                "Description": "Default schedule is 0 22 * * 1-5  it will run once every weekday at 22pm in the timezone specified in the timezone parameter (default utc). Schedule can be set using https://crontab.cronhub.io/"            }
+        },
+        "ScheduledScaleDownConfigTimeZone": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleDownConfig/TimeZone",
+                "Type": "String",
+                "Value": "UTC",
+                "Description": "Default time zone is UTC, for other options look at https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scheduledaction.html#cfn-autoscaling-scheduledaction-timezone"
+            }
+        },
+        "ScheduledScaleUpConfigDesiredCapacity": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleUpConfig/DesiredCapacity",
+                "Type": "String",
+                "Value": "1",
+                "Description": "As name implies ASG desired capacity for Scale up action."
+            }
+        },
+        "ScheduledScaleUpConfigMinimumCapacity": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleUpConfig/MinimumCapacity",
+                "Type": "String",
+                "Value": "0",
+                "Description": "As name implies ASG minimum capacity for Scale up action."
+            }
+        },
+        "ScheduledScaleUpConfigSchedule": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleUpConfig/Schedule",
+                "Type": "String",
+                "Value": "0 6 * * 1-5",
+                "Description": "Default schedule is 0 6 * * 1-5  it will run once every weekday at 6am in the timezone specified in the timezone parameter (default utc). Schedule can be set using https://crontab.cronhub.io/"
+            }
+        },
+        "ScheduledScaleUpConfigTimeZone": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {
+                "Name": "/NAT_M8/ASGScaleUpConfig/TimeZone",
+                "Type": "String",
+                "Value": "UTC",
+                "Description": "Default time zone is UTC, for other options look at https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-scheduledaction.html#cfn-autoscaling-scheduledaction-timezone"
+            }
+        }
+    },
+    "Outputs" : {
+        "LogsLocation" : {
+            "Description" : "In case of initialisation errors connect to the Instance using SSM, then use cat path/of/log or tail -n 30 path/of/log to command to view logs",
+            "Value" : "/var/log/cfn-init-cmd.log and /var/log/cloud-init-output.log"
+        },
+        "SubnetARN" : {
+            "Description" : "Test of Subnet ARN 1",
+            "Value" : {
+                "Fn::Join": [
+                    "",
+                    [
+                        { "Fn::Sub" :"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/"},
+                        { 
+                        "Fn::Select" : [ "0", {"Ref": "PrivateSubnets"}] 
+                        }
+                    ]
+                ]
+            }    
+        },
+        "ScriptLocation":{
+            "Description" : "ScriptLocation",
+            "Value" : { 
+                "Fn::If": [
+                    "LocalS3bucketspecified",
+                    {
+                        "Fn::Join":[
+                            "",
+                            [
+                                "s3://",
+                                {
+                                    "Ref": "NATConfigBucket"
+                                },
+                                "/",
+                                {
+                                    "Ref": "NATRoutingScript"
+                                }
+                            ]
+                        ]
+                    },
+                    { "Fn::FindInMap" : [ "Constants", "Script", "Url"]}
+                ]
+            }
+        }
+        
+    }
+}
+
