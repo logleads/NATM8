@@ -1,5 +1,5 @@
 # Overview
-NAT M8 is an IaC source available NAT solution that radically lowers cost and in the same time improves availability of your private AWS services. 
+[NAT M8](https://www.logleads.com/natm8) is an IaC source available NAT solution that radically lowers cost and in the same time improves availability of your private AWS services. 
 
 Top five reasons to choose NAT M8 over NAT Gateway
 
@@ -13,7 +13,7 @@ Note: in edge cases extra cpu utilisation cost may occur but even that would be 
 
 ---
 ## Licence
-NAT M8 licence is based on the Logverz public licence, which allows free use of the product and only places restrictions on commercial consulting/support services and custom private development. 
+NAT M8 licence is based on the Logverz public licence, which allows free use of the product and only places restrictions on custom private development. 
 You may learn more about the license [here](https://docs.logverz.io/licence) and use cases. [here](https://www.logverz.io/pricing).
 
 ---
@@ -111,7 +111,7 @@ Optional if empty the route configuration script is directly downloaded from Git
 #### NAT Routing Logic location
 Optional if empty the route configuration script is downloaded from GitHub, in case you want to source it from a local bucket (and file located in the root) specify *ConfigureRoutes.ps1*. Assuming file is located in a nested subfolder such as scripts -> nat than provide path like: *scripts/nat/ConfigureRoutes.ps1*.
 
-In either case please **note** there is no "/" at the beginning of the filename.
+In either case please **note** there is no "**/**" at the beginning of the filename.
 
 #### Instance AMI ID X64 and Instance AMI ID ARM
 
