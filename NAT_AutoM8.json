@@ -1,0 +1,1356 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "This template deploys a VPC, with configurable number of public and private subnets spread . It deploys an internet gateway, with a default route on the public subnets. It deploys configurable number of NATM8(s).",
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [{
+                    "Label": {
+                        "default": "VPC Parameters"
+                    },
+                    "Parameters": [
+                        "VpcCIDR",
+                        "PublicSubnetnumber",
+                        "PrivateSubnetnumber",
+                        "GeneratedVPCConfig"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "NAT M8 settings"
+                    },
+                    "Parameters": [
+                        "InstanceTypeX64",
+                        "InstanceTypeARM",
+                        "InstanceDesiredNumber",
+                        "InstanceMinimumNumber"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "AdvancedSettings"
+                    },
+                    "Parameters": [
+                        "ValidateConfiguration",
+                        "FunctionARN",
+                        "SourcesVersion"
+                    ]
+                }
+            ],
+            "ParameterLabels": {
+                "VpcCIDR": {
+                    "default": "VPC CIDR Start"
+                }
+            }
+        }
+    },
+    "Parameters": {
+        "VpcCIDR": {
+            "Description": "Please enter the starting IP addreess for this VPC, the range will automatically be generated based on the other inputs",
+            "Type": "String",
+            "Default": "172.29.0.0"
+        },
+        "ValidateConfiguration": {
+            "Description": "Default false, the option controlls creation of subnets and routes, if set true, the tobe configuration is available after deployment at the Outputs section.",
+            "Type": "String",
+            "AllowedValues": [
+                "true",
+                "false"
+            ],
+            "Default": "false"
+        },
+        "GeneratedVPCConfig": {
+            "Description": "The IP address ranges and mask information based on the user input",
+            "Type": "String"
+        },
+        "PublicSubnetnumber": {
+            "Description": "Please enter the desired subnet numbers, the minimum 2, will create 2 public subnets, recommended to set the number as there are availability zones in the region",
+            "Type": "Number",
+            "Default": "3",
+            "MinValue": "2",
+            "MaxValue": "8"
+        },
+        "PrivateSubnetnumber": {
+            "Description": "Please enter the desired subnet numbers, the minimum 2, will create 2 private subnets, recommended to set the number as there are availability zones in the region",
+            "Type": "Number",
+            "Default": "3",
+            "MinValue": "2",
+            "MaxValue": "8"
+        },
+        "FunctionARN": {
+            "Description": "Internal to operating logic of the solution, please do not modify.",
+            "Type": "String"
+        },
+        "SourcesVersion": {
+            "Description": "Internal to operating logic of the solution, please do not modify.",
+            "Type": "String"
+        },
+        "InstanceTypeX64": {
+            "Description": "EC2 instance types X64 (Intel/AMD) architecture, in format, x.<size>, y.<size>, z.<size>.. Specify maximum 3 X64 types, can be empty if you only want to use ARM type instances. Make sure the instance type exists in the selected region otherwise deployment will fail!",
+            "Type": "String",
+            "AllowedPattern":"^$|.*\\..*[^,]$|.*\\..*,.*\\..*[^,]$|.*\\..*,.*\\..*,.*\\..*[^,]$",
+            "ConstraintDescription": "must be in the following format: empty OR x.<size> OR x.<size>,y.<size> OR x.<size>,y.<size>,z.<size> no trailing comma!",
+            "Default": "t3.nano,t3a.nano"
+        },
+        "InstanceTypeARM": {
+            "Description": "EC2 instance type ARM architecture, in format, x.<size>, y.<size>, z.<size>.. Specify maximum 3 ARM types, can be empty if you only want to use X64 type instances. Make sure the instance type exists in the selected region otherwise deployment will fail!",
+            "Type": "String",
+            "AllowedPattern":"^$|.*\\..*[^,]$|.*\\..*,.*\\..*[^,]$|.*\\..*,.*\\..*,.*\\..*[^,]$",
+            "ConstraintDescription": "must be in the following format: empty OR x.<size> OR x.<size>,y.<size> OR x.<size>,y.<size>,z.<size> no trailing comma!",
+            "Default": "t4g.nano"
+        },
+        "InstanceDesiredNumber": {
+            "Default": "1",
+            "Description": "The desired number of instances, if no scaleup or scaledown configured it will remain as set, otherwise raise or fall respectively.",
+            "Type": "Number",
+            "MinValue": "0"
+        },
+        "InstanceMinimumNumber": {
+            "Default": "0",
+            "Description": "The minimum number of instances, if set to 0 and scaledown config is present than instance by **default will stop** once conditions apply (default 1MB / hour), if you want **continusly running** service set the minimum number to 1. The maximum number allways equals to the number of public subnets in other words one per public subnet.",
+            "Type": "Number",
+            "MinValue": "0"
+        }
+    },
+    "Conditions": {
+        "validatefalse": {
+            "Fn::Equals": [
+                "false",
+                {
+                    "Ref": "ValidateConfiguration"
+                }
+            ]
+        },
+        "disabled": {
+            "Fn::Equals": [
+                "true",
+                {
+                    "Ref": "ValidateConfiguration"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax2": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        2
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax3"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax4"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax5"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax6"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax7"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax3": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        3
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax4"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax5"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax6"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax7"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax4": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        4
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax5"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax6"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax7"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax5": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        5
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax6"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax7"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax6": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        6
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax7"
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax7": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PublicSubnetnumber"
+                        },
+                        7
+                    ]
+                },
+                {
+                    "Condition": "PublicsubnetNumberMax8"
+                }
+            ]
+        },
+        "PublicsubnetNumberMax8": {
+            "Fn::Equals": [{
+                    "Ref": "PublicSubnetnumber"
+                },
+                8
+            ]
+        },
+        "PrivatesubnetNumberMax2": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        2
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax3"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax4"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax3": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        3
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax4"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax4": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        4
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax5"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax5": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        5
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax6"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax6": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        6
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax7"
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax7": {
+            "Fn::Or": [{
+                    "Fn::Equals": [{
+                            "Ref": "PrivateSubnetnumber"
+                        },
+                        7
+                    ]
+                },
+                {
+                    "Condition": "PrivatesubnetNumberMax8"
+                }
+            ]
+        },
+        "PrivatesubnetNumberMax8": {
+
+            "Fn::Equals": [{
+                    "Ref": "PrivateSubnetnumber"
+                },
+                8
+            ]
+        }
+    },
+    "Resources": {
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::Sub": [
+                        "${cidr}/${mask}",
+                        {
+                            "cidr": {
+                                "Ref": "VpcCIDR"
+                            },
+                            "mask": {
+                                "Fn::Select": [1, {
+                                    "Fn::Split": [":",
+                                        {
+                                            "Fn::Select": [2,
+                                                {
+                                                    "Fn::Split": [";", {
+                                                        "Ref": "GeneratedVPCConfig"
+                                                    }]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }]
+                            }
+                        }
+                    ]
+                },
+                "EnableDnsSupport": true,
+                "EnableDnsHostnames": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "LogverzVPC"
+                }]
+            }
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "LogverzVPC"
+                }]
+            }
+        },
+        "InternetGatewayAttachment": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                },
+                "VpcId": {
+                    "Ref": "VPC"
+                }
+            }
+        },
+        "PublicSubnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [0,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet1"
+                }]
+            }
+        },
+        "PublicSubnet2": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax2",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [1,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet2"
+                }]
+            }
+        },
+        "PublicSubnet3": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax3",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [2,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet3"
+                }]
+            }
+        },
+        "PublicSubnet4": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax4",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [3,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet4"
+                }]
+            }
+        },
+        "PublicSubnet5": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax5",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [4,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                        "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet5"
+                }]
+            }
+        },
+        "PublicSubnet6": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax6",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [5,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet6"
+                }]
+            }
+        },
+        "PublicSubnet7": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax7",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [6,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet7"
+                }]
+            }
+        },
+        "PublicSubnet8": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PublicsubnetNumberMax8",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [7,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [0,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "MapPublicIpOnLaunch": true,
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PublicSubnet8"
+                }]
+            }
+        },
+        "PrivateSubnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [0,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet1"
+                }]
+            }
+        },
+        "PrivateSubnet2": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax2",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [1,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+            "Tags": [{
+                "Key": "Name",
+                "Value": "PrivateSubnet2"
+            }]
+            }
+        },
+        "PrivateSubnet3": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax3",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [2,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet3"
+                }]
+    
+            }
+        },
+        "PrivateSubnet4": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax4",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [3,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet4"
+                }]
+    
+            }
+        },
+        "PrivateSubnet5": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax5",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [4,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet5"
+                }]
+            }
+        },
+        "PrivateSubnet6": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax6",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [5,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet6"
+                }]
+    
+            }
+        },
+        "PrivateSubnet7": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax7",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [6,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                            "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet7"
+                }]
+    
+            }
+        },
+        "PrivateSubnet8": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "PrivatesubnetNumberMax8",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [7,
+                        {
+                            "Fn::Split": [",",
+                                {
+                                    "Fn::Select": [1, {
+                                        "Fn::Split": [":",
+                                            {
+                                                "Fn::Select": [1,
+                                                    {
+                                                        "Fn::Split": [";", {
+                                                        "Ref": "GeneratedVPCConfig"
+                                                        }]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": "PrivateSubnet8"
+                }]
+    
+            }
+        },
+        "PublicRouteTable1":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route1 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute1" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable1" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation1":{
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable1"},
+                "SubnetId" : {"Ref": "PublicSubnet1"}
+            }
+        },
+        "PublicRouteTable2":{
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route2 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute2" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable2" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation2":{
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable2"},
+                "SubnetId" : {"Ref": "PublicSubnet2"}
+            }
+        },
+        "PublicRouteTable3":{
+            "Condition": "PublicsubnetNumberMax3",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route3 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute3" : {
+            "Condition": "PublicsubnetNumberMax3",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable3" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation3":{
+            "Condition": "PublicsubnetNumberMax3",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable3"},
+                "SubnetId" : {"Ref": "PublicSubnet3"}
+            }
+        },
+        "PublicRouteTable4":{
+            "Condition": "PublicsubnetNumberMax4",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route4 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute4" : {
+            "Condition": "PublicsubnetNumberMax4",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable4" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation4":{
+            "Condition": "PublicsubnetNumberMax4",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable4"},
+                "SubnetId" : {"Ref": "PublicSubnet4"}
+            }
+        },
+        "PublicRouteTable5":{
+            "Condition": "PublicsubnetNumberMax5",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route5 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute5" : {
+            "Condition": "PublicsubnetNumberMax5",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable5" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation5":{
+            "Condition": "PublicsubnetNumberMax5",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable5"},
+                "SubnetId" : {"Ref": "PublicSubnet5"}
+            }
+        },
+        "PublicRouteTable6":{
+            "Condition": "PublicsubnetNumberMax6",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route6 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute6" : {
+            "Condition": "PublicsubnetNumberMax6",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable6" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation6":{
+            "Condition": "PublicsubnetNumberMax6",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable6"},
+                "SubnetId" : {"Ref": "PublicSubnet6"}
+            }
+        },
+        "PublicRouteTable7":{
+            "Condition": "PublicsubnetNumberMax7",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route7 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute7" : {
+            "Condition": "PublicsubnetNumberMax7",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable7" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation7":{
+            "Condition": "PublicsubnetNumberMax7",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable7"},
+                "SubnetId" : {"Ref": "PublicSubnet7"}
+            }
+        },
+        "PublicRouteTable8":{
+            "Condition": "PublicsubnetNumberMax8",
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "Tags" : [ { "Key" : "Name", "Value" : "Public route8 to IGW" }, 
+                    {"Key":"Test","Value": "Test"
+                    }
+                ]
+            }
+        },
+        "PublicRoute8" : {
+            "Condition": "PublicsubnetNumberMax8",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+            "RouteTableId" : { "Ref" : "PublicRouteTable8" },
+            "DestinationCidrBlock" : "0.0.0.0/0",
+            "GatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "PublicRouteTableandSunetAssociation8":{
+            "Condition": "PublicsubnetNumberMax8",
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref": "PublicRouteTable8"},
+                "SubnetId" : {"Ref": "PublicSubnet8"}
+            }
+        },
+        "DeploymentResource": {
+            "Type": "Custom::DeployNATAUTOM8",
+            "Condition": "validatefalse",
+            "DependsOn" : ["PublicRoute1", "PublicRoute2"],
+            "Properties": {
+                "ServiceToken": {
+                    "Ref": "FunctionARN"
+                },
+                "vpcrange": {
+                    "Fn::Sub": [
+                        "${cidr}/${mask}",
+                        {
+                            "cidr": {
+                                "Ref": "VpcCIDR"
+                            },
+                            "mask": {
+                                "Fn::Select": [1, {
+                                    "Fn::Split": [":",
+                                        {
+                                            "Fn::Select": [2,
+                                                {
+                                                    "Fn::Split": [";", {
+                                                        "Ref": "GeneratedVPCConfig"
+                                                    }]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }]
+                            }
+                        }
+                    ]
+                },
+                "VPCID": {"Ref": "VPC"},
+                "InstanceTypeX64": { "Ref" : "InstanceTypeX64" },
+                "InstanceTypeARM": { "Ref" : "InstanceTypeARM" },
+                "InstanceDesiredNumber": { "Ref" : "InstanceDesiredNumber" },
+                "InstanceMinimumNumber": { "Ref" : "InstanceMinimumNumber" },
+                "ValidateConfiguration": { "Ref" : "ValidateConfiguration" },
+                "StackName": {"Ref" : "AWS::StackName"} ,
+                "SourcesVersion":{"Ref" : "SourcesVersion"}
+    
+            }
+        }
+    },
+    "Outputs": {
+        "VPCID":{
+            "Description": "The ID of the VPC",
+            "Value": {"Ref": "VPC"}
+        },
+        "publicsubnetranges": {
+            "Description": "Ip address range of public subnets",
+            "Value": {
+                "Fn::Select": [1, {
+                    "Fn::Split": [":",
+                        {
+                            "Fn::Select": [0,
+                                {
+                                    "Fn::Split": [";", {
+                                        "Ref": "GeneratedVPCConfig"
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                }]
+            }
+        },
+        "privatesubnetranges": {
+            "Description": "Ip address range of private subnets",
+            "Value": {
+                "Fn::Select": [1, {
+                    "Fn::Split": [":",
+                        {
+                            "Fn::Select": [1,
+                                {
+                                    "Fn::Split": [";", {
+                                        "Ref": "GeneratedVPCConfig"
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                }]
+            }
+        },
+        "allvpcconfig": {
+            "Description": "A complete list of all the ip config",
+            "Value": {
+                "Ref": "GeneratedVPCConfig"
+            }
+        },
+        "ListofAZs": {
+            "Description": "A list of the availability zones",
+            "Value": {
+                "Fn::Join": [",", {
+                    "Fn::GetAZs": ""
+                }]
+            }
+        }
+    }
+}

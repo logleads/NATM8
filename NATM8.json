@@ -50,7 +50,8 @@
                         "NATConfigBucket",
                         "NATRoutingScript",
                         "NatServerAMIidX64",
-                        "NatServerAMIidARM"
+                        "NatServerAMIidARM",
+                        "NatServerKey"
                     ]
                 }
             ],
@@ -108,6 +109,9 @@
                 },
                 "OnDemandPurchasePercentage":{
                     "default": "OnDemand Instance Purchase Percentage"
+                },
+                "NatServerKey":{
+                    "default": "Optional Private key to log in to the instance"
                 }
             }
         }
@@ -128,7 +132,7 @@
         },
         "PublicSubnets": {
             "Type": "List<AWS::EC2::Subnet::Id>",
-            "Description": "The list of public SubnetIds in your Virtual Private Cloud (VPC)."
+            "Description": "The list of public SubnetIds in your Virtual Private Cloud (VPC). In form of subnet-xxx,subnet-yyy,subnet-zzz.Note: the , dividing each subnet's name. Also make sure there are not whitespaces in the field."
         },
         "PrivateSubnets": {
             "Type": "List<AWS::EC2::Subnet::Id>",
@@ -156,7 +160,7 @@
         },
         "InstanceMinimumNumber": {
             "Default": "0",
-            "Description": "The minimum number of instances, if set to 0 and scaledown config is present than instance by **default will stop** once conditions apply (default 1MB / hour), if you want **continusly running** service set the minimum number to 1.",
+            "Description": "The minimum number of instances, if set to 0 and scaledown config is present than instance by **default will stop** once conditions apply (default 1MB / hour), if you want **continusly running** service set the minimum number to 1.The maximum number allways equals to the number of public subnets in other words one per public subnet.",
             "Type": "Number",
             "MinValue": "0"
         },
@@ -201,12 +205,12 @@
         "NatServerAMIidX64": {
             "Description": "The image for the NAT server X64 (Intel/AMD).",
             "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
-            "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+            "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
         },
         "NatServerAMIidARM": {
             "Description": "The image for the NAT server ARM.",
             "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
-            "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-arm64-gp2"
+            "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64"
         },
         "CWLogsandMetricsConfig":{
             "Description": "Contains configuration options of which logs and metrics to collect, configuration is set in SSM parameter store /NAT_M8/CloudwatchLogsConfig<type> for dev or hobbyist environment minimal, standard environments basic, enterprise or critical environment standard config is recommended",
@@ -225,7 +229,12 @@
             "Type": "Number",
             "MinValue": "0",
             "MaxValue": "100"
+        },
+        "NatServerKey":{
+            "Description": "Instance EC2 Key Pair,  optional, for logging into the instance.",
+            "Type": "String"
         }
+        
     },
     "Rules": {
         "SubnetsInVPC": {
@@ -693,7 +702,8 @@
                 },
                 "standard"
             ]
-        }
+        },
+        "HasKeyName": {"Fn::Not": [{"Fn::Equals": ["", {"Ref": "NatServerKey"}]}]}
     },
     "Resources": {
         "NATM8SG": {
@@ -823,6 +833,7 @@
                                         "ec2:DescribeVpcs",
                                         "ec2:DescribeSubnets",
                                         "ec2:DescribeInstances",
+                                        "ec2:DescribeLaunchTemplateVersions",
                                         "autoscaling:DescribeAutoScalingInstances",
                                         "autoscaling:DescribeAutoScalingGroups",
                                         "logs:DescribeLogStreams",
@@ -1598,8 +1609,6 @@
                     "config" : {
                         "packages" : {
                             "yum" : {
-                                "jq":[],
-                                "nano":[],
                                 "amazon-cloudwatch-agent":[],
                                 "htop":[]
                             }
@@ -1620,14 +1629,14 @@
                                             "# Disable source/destination IP check so forwarding will work\n",
                                             "aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --source-dest-check \"{\\\"Value\\\": false}\" --region ${REGION}\n\n",
                                             "# Turn on IPV4 forwarding\n",
-                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.conf\n",
+                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.d/custom-ip-forwarding.conf\n",
                                             "sysctl -p\n\n",
                                             "# Enable iptables to start on boot, and start it now with a clean slate / no rules\n",
                                             "systemctl enable iptables\n",
                                             "systemctl start iptables\n",
                                             "iptables -F\n\n",
                                             "# Enable nat in iptables for our VPC CIDDR\n",
-                                            "iptables -t nat -A POSTROUTING -o eth0 -s ${VPCCIDR} -j MASQUERADE\n\n",
+                                            "iptables -t nat -A POSTROUTING -o ens5 -s ${VPCCIDR} -j MASQUERADE\n\n",
                                             "# Configure iptables:\n",
                                             "# 1. accept anything on the loopback adapter\n",
                                             "# 2. accept incoming packets that belong to a connection that has already been established\n",
@@ -1648,7 +1657,8 @@
                                             "# allow the server to perform its own traceroutes\n",
                                             "iptables -I OUTPUT -p udp --dport 33434:33474 -j ACCEPT\n\n",
                                             "# And persist the iptables config\n",
-                                            "iptables-save > /etc/sysconfig/iptables"
+                                            "iptables-save > /etc/sysconfig/iptables\n",
+                                            "sudo sysctl -p /etc/sysctl.d/custom-ip-forwarding.conf"
                                         ]
                                     ]
                                 },
@@ -1785,10 +1795,9 @@
                                  "Fn::Join": [
                                         "",
                                         [
-                                        "yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n",
-                                        "yum -y install iptables-services fail2ban\n",
-                                        "curl https://packages.microsoft.com/config/rhel/7/prod.repo | sudo tee /etc/yum.repos.d/microsoft.repo\n",
-                                        "sudo yum install --assumeyes powershell\n",
+                                        "sudo dnf install https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-1.rh.x86_64.rpm -y\n",
+                                        "sudo dnf install fail2ban -y\n",
+                                        "sudo dnf install iptables-services -y\n",
                                         "/tmp/setup.nat\n\n"
                                         ]
                                     ]
@@ -1914,6 +1923,7 @@
                             "Ref": "NATM8Profile"
                         }
                     },
+                    "KeyName": {"Fn::If": ["HasKeyName", {"Ref": "NatServerKey"}, {"Ref": "AWS::NoValue"}]},
                     "MetadataOptions":{
                         "HttpTokens":"required"
                     },
@@ -1962,8 +1972,6 @@
                     "config" : {
                         "packages" : {
                             "yum" : {
-                                "jq":[],
-                                "nano":[],
                                 "amazon-cloudwatch-agent":[],
                                 "htop":[]
                             }
@@ -1984,14 +1992,14 @@
                                             "# Disable source/destination IP check so forwarding will work\n",
                                             "aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --source-dest-check \"{\\\"Value\\\": false}\" --region ${REGION}\n\n",
                                             "# Turn on IPV4 forwarding\n",
-                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.conf\n",
+                                            "echo \"net.ipv4.ip_forward = 1\" >> /etc/sysctl.d/custom-ip-forwarding.conf\n",
                                             "sysctl -p\n\n",
                                             "# Enable iptables to start on boot, and start it now with a clean slate / no rules\n",
                                             "systemctl enable iptables\n",
                                             "systemctl start iptables\n",
                                             "iptables -F\n\n",
                                             "# Enable nat in iptables for our VPC CIDDR\n",
-                                            "iptables -t nat -A POSTROUTING -o eth0 -s ${VPCCIDR} -j MASQUERADE\n\n",
+                                            "iptables -t nat -A POSTROUTING -o ens5 -s ${VPCCIDR} -j MASQUERADE\n\n",
                                             "# Configure iptables:\n",
                                             "# 1. accept anything on the loopback adapter\n",
                                             "# 2. accept incoming packets that belong to a connection that has already been established\n",
@@ -2012,7 +2020,8 @@
                                             "# allow the server to perform its own traceroutes\n",
                                             "iptables -I OUTPUT -p udp --dport 33434:33474 -j ACCEPT\n\n",
                                             "# And persist the iptables config\n",
-                                            "iptables-save > /etc/sysconfig/iptables"
+                                            "iptables-save > /etc/sysconfig/iptables\n",
+                                            "sudo sysctl -p /etc/sysctl.d/custom-ip-forwarding.conf"
                                         ]
                                     ]
                                 },
@@ -2150,11 +2159,8 @@
                                  "Fn::Join": [
                                         "",
                                         [
-                                        "yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm\n",
-                                        "yum -y install iptables-services fail2ban\n",
-                                        "# TODO: create a call that receives the latest (non-dev) version of powershell, till than use hardcoded latest value\n",
                                         "# Download the powershell '.tar.gz' archive\n",
-                                        "curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.3.4/powershell-7.3.4-linux-arm64.tar.gz\n\n",
+                                        "curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz\n\n",
                                         "# Create the target folder where powershell will be placed\n",
                                         "sudo mkdir -p /opt/microsoft/powershell/7\n\n",
                                         "# Expand powershell to the target folder\n",
@@ -2163,6 +2169,7 @@
                                         "sudo chmod +x /opt/microsoft/powershell/7/pwsh\n\n",
                                         "# Create the symbolic link that points to pwsh\n",
                                         "sudo ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh\n\n",
+                                        "sudo dnf install iptables-services -y\n\n",
                                         "/tmp/setup.nat\n\n"
                                         ]
                                     ]
@@ -2288,6 +2295,7 @@
                             "Ref": "NATM8Profile"
                         }
                     },
+                    "KeyName": {"Fn::If": ["HasKeyName", {"Ref": "NatServerKey"}, {"Ref": "AWS::NoValue"}]},
                     "MetadataOptions":{
                         "HttpTokens":"required"
                     },
@@ -2332,7 +2340,7 @@
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 1" }, 
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route1 to NAT" }, 
                     {"Key":"Test","Value": "Test"
                     }
                 ]
@@ -2343,7 +2351,7 @@
             "Condition":"PrivatesubnetNumberMax2",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 2" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route2 to NAT" } ]
             }
         },
         "RouteTable3":{
@@ -2351,7 +2359,7 @@
             "Condition":"PrivatesubnetNumberMax3",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 3" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route3 to NAT" } ]
             }
         },
         "RouteTable4":{
@@ -2359,7 +2367,7 @@
             "Condition":"PrivatesubnetNumberMax4",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 4" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route4 to NAT" } ]
             }
         },
         "RouteTable5":{
@@ -2367,7 +2375,7 @@
             "Condition":"PrivatesubnetNumberMax5",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 5" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route5 to NAT" } ]
             }
         },
         "RouteTable6":{
@@ -2375,7 +2383,7 @@
             "Condition":"PrivatesubnetNumberMax6",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 6" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route6 to NAT" } ]
             }
         },
         "RouteTable7":{
@@ -2383,7 +2391,7 @@
             "Condition":"PrivatesubnetNumberMax7",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 7" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route7 to NAT" } ]
             }
         },
         "RouteTable8":{
@@ -2391,7 +2399,7 @@
             "Condition":"PrivatesubnetNumberMax8",
             "Properties" : {
                 "VpcId" : { "Ref" : "VpcId" },
-                "Tags" : [ { "Key" : "Name", "Value" : "Private route 2 NAT 8" } ]
+                "Tags" : [ { "Key" : "Name", "Value" : "Private route8 to NAT" } ]
             }
         },
         "CloudwatchLogsConfigMinimal": {
@@ -2540,6 +2548,15 @@
         "LogsLocation" : {
             "Description" : "In case of initialisation errors connect to the Instance using SSM, then use cat path/of/log or tail -n 30 path/of/log to command to view logs",
             "Value" : "/var/log/cfn-init-cmd.log and /var/log/cloud-init-output.log"
+        },
+        "Latesttemplateversion" : {
+            "Description" : "Contains reference to the latest launch template",
+            "Value" :         {
+                "Fn::GetAtt": [ 
+                "LaunchTemplateARM", 
+                "LatestVersionNumber" 
+                ]
+            }
         },
         "SubnetARN" : {
             "Description" : "Test of Subnet ARN 1",
