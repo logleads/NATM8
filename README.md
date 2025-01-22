@@ -5,11 +5,17 @@
 
 Managing cloud networks and keeping everything connected can be a bit of a headache. Traditional tools like AWS NAT Gateway can cost you $40 a month or more, and you have to tinker for hours with the right setup to get started.
 
-Say hello to **NAT autoM8** and **NAT M8** — your new cloud sidekicks! These mates make cloud networking a breeze: cheaper, quicker, and way easier to use.
+Say hello to **NAT autoM8** and **NAT M8** and Make cloud networking a breeze: cheaper, quicker, and way easier to use.
 
 At its core, **NAT autoM8 is your cloud’s network orchestrator** — *a tool that builds and automates your AWS VPC structure with the ease and efficiency of setting up a home Wi-Fi router*. It configures everything from subnets to route tables and associations and deploys **NAT M8**, *a super cost-effective and reliable NAT service that delivers seamless internet access to your private AWS systems*.
 
 NAT autoM8 is a fully IaC (Infrastructure-as-Code) solution, ideal for hobbyists and businesses looking to optimise their cloud infrastructure while keeping costs low. It’s licensed under the **NATM8 Public Licence**, ensuring source-available transparency.
+
+
+
+### 🎥 The One-Step AWS Network Orchestrator | Simplify Cloud Networking with NAT autoM8 & NAT M8 [![The One-Step AWS Network Orchestrator | Simplify Cloud Networking with NAT autoM8 & NAT M8](https://img.youtube.com/vi/kX5Ojo4cvGQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=kX5Ojo4cvGQ)  
+<small>*click image to [open video](https://www.youtube.com/watch?v=kX5Ojo4cvGQ)*</small>
+
 
 ## :twisted_rightwards_arrows: Why Switch to NAT autoM8: The Smarter Choice for AWS Connectivity
 NAT autoM8 offers a compelling combination of cost efficiency, reliability, and scalability, making it the ideal choice for businesses optimising their AWS connectivity. Below is a clear comparison of its benefits and the reasons to switch:
@@ -149,5 +155,4 @@ NAT autoM8 makes a bigger impact with your collaboration and feedback. Let’s i
 :chart_with_upwards_trend: Check out our source-avaible **Data Integration Platform** :point_right:  **Logverz** <br>
 *Logverz grabs your logs from your AWS S3 data hub and, with a few clicks, transforms them into table format and instant insights with PowerBI, Tableau or Excel.* *Streamline your data collection and analysis like never before!* https://www.logverz.io/ 
 
-## :grey_question: FAQ 
-[F A Q](FAQ.md)
+### <a href="FAQ.md" target="_blank"> 👉 Frequently Asked Questions </a>

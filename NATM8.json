@@ -2160,7 +2160,7 @@
                                         "",
                                         [
                                         "# Download the powershell '.tar.gz' archive\n",
-                                        "curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz\n\n",
+                                        "curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz\n\n",
                                         "# Create the target folder where powershell will be placed\n",
                                         "sudo mkdir -p /opt/microsoft/powershell/7\n\n",
                                         "# Expand powershell to the target folder\n",
@@ -2169,7 +2169,7 @@
                                         "sudo chmod +x /opt/microsoft/powershell/7/pwsh\n\n",
                                         "# Create the symbolic link that points to pwsh\n",
                                         "sudo ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh\n\n",
-                                        "sudo dnf install iptables-services -y\n\n",
+                                        "sudo dnf install libicu iptables-services -y\n\n",
                                         "/tmp/setup.nat\n\n"
                                         ]
                                     ]

@@ -390,6 +390,320 @@
             ]
         }
     },
+    "Mappings" : {
+        "RegionMap" : {
+          "us-east-1":{
+            "S1" : "us-east-1a",
+            "S2" : "us-east-1b",
+            "S3" : "us-east-1c",
+            "S4" : "us-east-1d",
+            "S5" : "us-east-1e",
+            "S6" : "us-east-1f",
+            "S7" : "us-east-1a",
+            "S8" : "us-east-1b"
+          },
+          "us-east-2":{
+            "S1" : "us-east-2a",
+            "S2" : "us-east-2b",
+            "S3" : "us-east-2c",
+            "S4" : "us-east-2a",
+            "S5" : "us-east-2b",
+            "S6" : "us-east-2c",
+            "S7" : "us-east-2a",
+            "S8" : "us-east-2b"
+          },
+          "us-west-1":{
+            "S1" : "us-west-1a",
+            "S2" : "us-west-1b",
+            "S3" : "us-west-1c",
+            "S4" : "us-west-1a",
+            "S5" : "us-west-1b",
+            "S6" : "us-west-1c",
+            "S7" : "us-west-1a",
+            "S8" : "us-west-1b"
+          },
+          "us-west-2":{
+            "S1" : "us-west-2a",
+            "S2" : "us-west-2b",
+            "S3" : "us-west-2c",
+            "S4" : "us-west-2d",
+            "S5" : "us-west-2a",
+            "S6" : "us-west-2b",
+            "S7" : "us-west-2c",
+            "S8" : "us-west-2d"
+          },
+          "af-south-1":{
+            "S1" : "af-south-1a",
+            "S2" : "af-south-1b",
+            "S3" : "af-south-1c",
+            "S4" : "af-south-1a",
+            "S5" : "af-south-1b",
+            "S6" : "af-south-1c",
+            "S7" : "af-south-1a",
+            "S8" : "af-south-1b"
+          },
+          "ap-east-1":{
+            "S1" : "ap-east-1a",
+            "S2" : "ap-east-1b",
+            "S3" : "ap-east-1c",
+            "S4" : "ap-east-1a",
+            "S5" : "ap-east-1b",
+            "S6" : "ap-east-1c",
+            "S7" : "ap-east-1a",
+            "S8" : "ap-east-1b"
+          },
+          "ap-south-1":{
+            "S1" : "ap-south-1a",
+            "S2" : "ap-south-1b",
+            "S3" : "ap-south-1c",
+            "S4" : "ap-south-1a",
+            "S5" : "ap-south-1b",
+            "S6" : "ap-south-1c",
+            "S7" : "ap-south-1a",
+            "S8" : "ap-south-1b"
+          },
+          "ap-south-2":{
+            "S1" : "ap-south-2a",
+            "S2" : "ap-south-2b",
+            "S3" : "ap-south-2c",
+            "S4" : "ap-south-2a",
+            "S5" : "ap-south-2b",
+            "S6" : "ap-south-2c",
+            "S7" : "ap-south-2a",
+            "S8" : "ap-south-2b"
+          },
+          "ap-southeast-1":{
+            "S1" : "ap-southeast-1a",
+            "S2" : "ap-southeast-1b",
+            "S3" : "ap-southeast-1c",
+            "S4" : "ap-southeast-1a",
+            "S5" : "ap-southeast-1b",
+            "S6" : "ap-southeast-1c",
+            "S7" : "ap-southeast-1a",
+            "S8" : "ap-southeast-1b"
+          },
+          "ap-southeast-2":{
+            "S1" : "ap-southeast-2a",
+            "S2" : "ap-southeast-2b",
+            "S3" : "ap-southeast-2c",
+            "S4" : "ap-southeast-2a",
+            "S5" : "ap-southeast-2b",
+            "S6" : "ap-southeast-2c",
+            "S7" : "ap-southeast-2a",
+            "S8" : "ap-southeast-2b"
+          },
+          "ap-southeast-3":{
+            "S1" : "ap-southeast-3a",
+            "S2" : "ap-southeast-3b",
+            "S3" : "ap-southeast-3c",
+            "S4" : "ap-southeast-3a",
+            "S5" : "ap-southeast-3b",
+            "S6" : "ap-southeast-3c",
+            "S7" : "ap-southeast-3a",
+            "S8" : "ap-southeast-3b"
+          },
+          "ap-southeast-4":{
+            "S1" : "ap-southeast-4a",
+            "S2" : "ap-southeast-4b",
+            "S3" : "ap-southeast-4c",
+            "S4" : "ap-southeast-4a",
+            "S5" : "ap-southeast-4b",
+            "S6" : "ap-southeast-4c",
+            "S7" : "ap-southeast-4a",
+            "S8" : "ap-southeast-4b"
+          },
+          "ap-southeast-7":{
+            "S1" : "ap-southeast-7a",
+            "S2" : "ap-southeast-7b",
+            "S3" : "ap-southeast-7c",
+            "S4" : "ap-southeast-7a",
+            "S5" : "ap-southeast-7b",
+            "S6" : "ap-southeast-7c",
+            "S7" : "ap-southeast-7a",
+            "S8" : "ap-southeast-7b"
+          },
+          "ap-northeast-3":{
+            "S1" : "ap-northeast-3a",
+            "S2" : "ap-northeast-3b",
+            "S3" : "ap-northeast-3c",
+            "S4" : "ap-northeast-3a",
+            "S5" : "ap-northeast-3b",
+            "S6" : "ap-northeast-3c",
+            "S7" : "ap-northeast-3a",
+            "S8" : "ap-northeast-3b"
+          },
+          "ap-northeast-2":{
+            "S1" : "ap-northeast-2a",
+            "S2" : "ap-northeast-2b",
+            "S3" : "ap-northeast-2c",
+            "S4" : "ap-northeast-2d",
+            "S5" : "ap-northeast-2a",
+            "S6" : "ap-northeast-2b",
+            "S7" : "ap-northeast-2c",
+            "S8" : "ap-northeast-2d"
+          },
+          "ap-northeast-1":{
+            "S1" : "ap-northeast-1a",
+            "S2" : "ap-northeast-1b",
+            "S3" : "ap-northeast-1c",
+            "S4" : "ap-northeast-1d",
+            "S5" : "ap-northeast-1a",
+            "S6" : "ap-northeast-1b",
+            "S7" : "ap-northeast-1c",
+            "S8" : "ap-northeast-1d"
+          },
+          "ca-central-1" : { 
+            "S1" : "ca-central-1a", 
+            "S2" : "ca-central-1b", 
+            "S3" : "ca-central-1c", 
+            "S4" : "ca-central-1a", 
+            "S5" : "ca-central-1b", 
+            "S6" : "ca-central-1c", 
+            "S7" : "ca-central-1a", 
+            "S8" : "ca-central-1b" 
+          },
+          "ca-west-1" : { 
+            "S1" : "ca-west-1a", 
+            "S2" : "ca-west-1b", 
+            "S3" : "ca-west-1c", 
+            "S4" : "ca-west-1a", 
+            "S5" : "ca-west-1b", 
+            "S6" : "ca-west-1c", 
+            "S7" : "ca-west-1a", 
+            "S8" : "ca-west-1b" 
+          },
+          "eu-central-1" : { 
+            "S1" : "eu-central-1a", 
+            "S2" : "eu-central-1b", 
+            "S3" : "eu-central-1c", 
+            "S4" : "eu-central-1a", 
+            "S5" : "eu-central-1b", 
+            "S6" : "eu-central-1c", 
+            "S7" : "eu-central-1a", 
+            "S8" : "eu-central-1b" 
+          },
+          "eu-central-2" : { 
+            "S1" : "eu-central-2a", 
+            "S2" : "eu-central-2b", 
+            "S3" : "eu-central-2c", 
+            "S4" : "eu-central-2a", 
+            "S5" : "eu-central-2b", 
+            "S6" : "eu-central-2c", 
+            "S7" : "eu-central-2a", 
+            "S8" : "eu-central-2b" 
+          },
+          "eu-west-1" : { 
+            "S1" : "eu-west-1a", 
+            "S2" : "eu-west-1b", 
+            "S3" : "eu-west-1c", 
+            "S4" : "eu-west-1a", 
+            "S5" : "eu-west-1b", 
+            "S6" : "eu-west-1c", 
+            "S7" : "eu-west-1a", 
+            "S8" : "eu-west-1b" 
+          },
+          "eu-west-2" : { 
+            "S1" : "eu-west-2a", 
+            "S2" : "eu-west-2b", 
+            "S3" : "eu-west-2c", 
+            "S4" : "eu-west-2a", 
+            "S5" : "eu-west-2b", 
+            "S6" : "eu-west-2c", 
+            "S7" : "eu-west-2a", 
+            "S8" : "eu-west-2b" 
+          },
+          "eu-west-3" : { 
+            "S1" : "eu-west-3a", 
+            "S2" : "eu-west-3b", 
+            "S3" : "eu-west-3c", 
+            "S4" : "eu-west-3a", 
+            "S5" : "eu-west-3b", 
+            "S6" : "eu-west-3c", 
+            "S7" : "eu-west-3a", 
+            "S8" : "eu-west-3b" 
+          },
+          "eu-south-1":{
+            "S1" : "eu-south-1a",
+            "S2" : "eu-south-1b",
+            "S3" : "eu-south-1c",
+            "S4" : "eu-south-1a",
+            "S5" : "eu-south-1b",
+            "S6" : "eu-south-1c",
+            "S7" : "eu-south-1a",
+            "S8" : "eu-south-1b"
+          },
+          "eu-south-2":{
+            "S1" : "eu-south-2a",
+            "S2" : "eu-south-2b",
+            "S3" : "eu-south-2c",
+            "S4" : "eu-south-2a",
+            "S5" : "eu-south-2b",
+            "S6" : "eu-south-2c",
+            "S7" : "eu-south-2a",
+            "S8" : "eu-south-2b"
+          },
+          "eu-north-1":{
+            "S1" : "eu-north-1a",
+            "S2" : "eu-north-1b",
+            "S3" : "eu-north-1c",
+            "S4" : "eu-north-1a",
+            "S5" : "eu-north-1b",
+            "S6" : "eu-north-1c",
+            "S7" : "eu-north-1a",
+            "S8" : "eu-north-1b"
+          },
+          "mx-central-1" : { 
+            "S1" : "mx-central-1a", 
+            "S2" : "mx-central-1b", 
+            "S3" : "mx-central-1c", 
+            "S4" : "mx-central-1a", 
+            "S5" : "mx-central-1b", 
+            "S6" : "mx-central-1c", 
+            "S7" : "mx-central-1a", 
+            "S8" : "mx-central-1b" 
+          },
+          "me-south-1":{
+            "S1" : "me-south-1a",
+            "S2" : "me-south-1b",
+            "S3" : "me-south-1c",
+            "S4" : "me-south-1a",
+            "S5" : "me-south-1b",
+            "S6" : "me-south-1c",
+            "S7" : "me-south-1a",
+            "S8" : "me-south-1b"
+          },
+          "me-central-1" : { 
+            "S1" : "me-central-1a", 
+            "S2" : "me-central-1b", 
+            "S3" : "me-central-1c", 
+            "S4" : "me-central-1a", 
+            "S5" : "me-central-1b", 
+            "S6" : "me-central-1c", 
+            "S7" : "me-central-1a", 
+            "S8" : "me-central-1b" 
+          },
+          "il-central-1" : { 
+            "S1" : "il-central-1a", 
+            "S2" : "il-central-1b", 
+            "S3" : "il-central-1c", 
+            "S4" : "il-central-1a", 
+            "S5" : "il-central-1b", 
+            "S6" : "il-central-1c", 
+            "S7" : "il-central-1a", 
+            "S8" : "il-central-1b" 
+          },
+          "sa-east-1":{
+            "S1" : "sa-east-1a",
+            "S2" : "sa-east-1b",
+            "S3" : "sa-east-1c",
+            "S4" : "sa-east-1a",
+            "S5" : "sa-east-1b",
+            "S6" : "sa-east-1c",
+            "S7" : "sa-east-1a",
+            "S8" : "sa-east-1b"
+          }
+        }
+    },
     "Resources": {
         "VPC": {
             "Type": "AWS::EC2::VPC",
@@ -423,7 +737,7 @@
                 "EnableDnsHostnames": true,
                 "Tags": [{
                     "Key": "Name",
-                    "Value": "LogverzVPC"
+                    "Value": "NATautoM8"
                 }]
             }
         },
@@ -432,7 +746,7 @@
             "Properties": {
                 "Tags": [{
                     "Key": "Name",
-                    "Value": "LogverzVPC"
+                    "Value": "NATautoM8"
                 }]
             }
         },
@@ -452,6 +766,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S1"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [0,
@@ -490,6 +813,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S2"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [1,
                         {
@@ -526,6 +858,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S3"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [2,
@@ -564,6 +905,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S4"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [3,
                         {
@@ -600,6 +950,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S5"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [4,
@@ -638,6 +997,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S6"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [5,
                         {
@@ -674,6 +1042,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S7"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [6,
@@ -712,6 +1089,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S8"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [7,
                         {
@@ -747,6 +1133,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S1"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [0,
@@ -784,6 +1179,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S2"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [1,
                         {
@@ -819,6 +1223,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S3"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [2,
@@ -857,6 +1270,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S4"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [3,
                         {
@@ -894,6 +1316,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S5"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [4,
                         {
@@ -929,6 +1360,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S6"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [5,
@@ -967,6 +1407,15 @@
                 "VpcId": {
                     "Ref": "VPC"
                 },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S7"
+                    ]
+                },
                 "CidrBlock": {
                     "Fn::Select": [6,
                         {
@@ -1003,6 +1452,15 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
+                },
+                "AvailabilityZone":{ 
+                    "Fn::FindInMap" : [ 
+                      "RegionMap", 
+                      { 
+                        "Ref" : "AWS::Region" 
+                      }, 
+                      "S8"
+                    ]
                 },
                 "CidrBlock": {
                     "Fn::Select": [7,

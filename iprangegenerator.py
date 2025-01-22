@@ -313,7 +313,7 @@ def get_networkinfo(cfnclient, Stackname):
 
 	return result
 
-def helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket ):
+def helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket, instance_type_x64, instance_type_arm, instance_desired_number, instance_minimum_number):
 	stackparameters =  [
 			{
 				'ParameterKey': 'VpcId',
@@ -330,6 +330,22 @@ def helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket 
 			{
 				'ParameterKey': 'PrivateSubnets',
 				'ParameterValue': str(networkparams['private']).replace('[', '').replace(']', '').replace("'", "")
+			},
+						{
+				'ParameterKey': 'InstanceTypeX64',
+				'ParameterValue': instance_type_x64
+			},
+			{
+				'ParameterKey': 'InstanceTypeARM',
+				'ParameterValue': instance_type_arm
+			},
+			{
+				'ParameterKey': 'InstanceDesiredNumber',
+				'ParameterValue': str(instance_desired_number)
+			},
+			{
+				'ParameterKey': 'InstanceMinimumNumber',
+				'ParameterValue': str(instance_minimum_number)
 			},
 			{
 				'ParameterKey': 'NATConfigBucket',
@@ -542,6 +558,11 @@ def main(event, context):
 		Stackname=event['ResourceProperties']['StackName']
 		vpc_id=event['ResourceProperties']['VPCID']
 		vpc_range=event['ResourceProperties']['vpcrange']
+		instance_type_x64=event['ResourceProperties']['InstanceTypeX64']
+		instance_type_arm=event['ResourceProperties']['InstanceTypeARM']
+		instance_desired_number=event['ResourceProperties']['InstanceDesiredNumber']
+		instance_minimum_number=event['ResourceProperties']['InstanceMinimumNumber']
+		validate_configuration=event['ResourceProperties']['ValidateConfiguration']
 
 	elif((event['ResourceType']) == "Custom::DeployNATM8"):
 		#NATM8 deployed solo (to existing vpc)
@@ -619,10 +640,10 @@ def main(event, context):
 	elif (resourcetype == 'Custom::DeployNATAUTOM8' and requesttype == 'Create'):
 		#in case its after subnet and vpc have been deployed. We start Nat M8 installation.
 		networkparams= get_networkinfo(cfnclient, Stackname)
-		stackparameters = helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket )
+		stackparameters = helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket, instance_type_x64, instance_type_arm, instance_desired_number, instance_minimum_number)
 		print('Stack Parameters:\n\n', stackparameters)
 		cfnclient.create_stack(
-			StackName='NATAutoM8-Service',
+			StackName='NATM8-Service',
 			TemplateURL='https://' + S3Bucket +'.s3.' + region +'.amazonaws.com/NATM8.json',
 			Capabilities=['CAPABILITY_NAMED_IAM','CAPABILITY_AUTO_EXPAND'],
 			Parameters=stackparameters
@@ -634,12 +655,12 @@ def main(event, context):
 	elif (resourcetype == 'Custom::DeployNATAUTOM8' and requesttype == 'Update'):
 		#in case its after subnet and vpc have been deployed. We start Nat M8 installation.
 		networkparams= get_networkinfo(cfnclient, Stackname)
-		stackparameters = helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket )
+		stackparameters = helper_cfn_AutoM8_service_params(vpc_id, vpc_range, networkparams, S3Bucket, instance_type_x64, instance_type_arm, instance_desired_number, instance_minimum_number)
 		print('Stack Parameters:\n\n', stackparameters)
 
 		cfnclient.update_stack(
 		#cfnclient.create_stack(
-			StackName='NATAutoM8-Service',
+			StackName='NATM8-Service',
 			TemplateURL='https://' + S3Bucket +'.s3.' + region +'.amazonaws.com/NATM8.json',
 			Capabilities=['CAPABILITY_NAMED_IAM','CAPABILITY_AUTO_EXPAND'],
 			Parameters=stackparameters
